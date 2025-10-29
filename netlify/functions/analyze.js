@@ -102,11 +102,15 @@ async function crawlWebsite(url) {
     
     console.log('🌐 Navigating to URL:', url);
     await page.goto(url, { 
-      waitUntil: 'networkidle0', 
-      timeout: 30000 
+      waitUntil: 'domcontentloaded', 
+      timeout: 20000 
     });
 
     console.log('✅ Page loaded successfully');
+    
+    // Wait a bit for dynamic content to load
+    console.log('⏳ Waiting for dynamic content...');
+    await page.waitForTimeout(2000);
     console.log('📸 Taking screenshot...');
     
     const screenshotBuffer = await page.screenshot({ 
@@ -464,6 +468,10 @@ exports.handler = async (event, _context) => {
     console.log('❌ Invalid HTTP method');
     return {
       statusCode: 405,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
@@ -476,6 +484,10 @@ exports.handler = async (event, _context) => {
       console.log('❌ URL is missing from request');
       return {
         statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
         body: JSON.stringify({ error: 'URL is required' })
       };
     }
@@ -491,6 +503,10 @@ exports.handler = async (event, _context) => {
       console.log('❌ Crawl failed:', crawlResult.error);
       return {
         statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
         body: JSON.stringify({ 
           error: `Failed to crawl website: ${crawlResult.error}` 
         })
@@ -508,6 +524,10 @@ exports.handler = async (event, _context) => {
       console.log('❌ AI analysis failed:', aiResult.error);
       return {
         statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
         body: JSON.stringify({ 
           error: `Failed to analyze website: ${aiResult.error}` 
         })
@@ -579,6 +599,10 @@ exports.handler = async (event, _context) => {
     
     return {
       statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
       body: JSON.stringify({ 
         error: `Internal server error: ${error.message}` 
       })
