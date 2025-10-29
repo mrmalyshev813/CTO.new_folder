@@ -127,7 +127,7 @@ Netlify provides basic analytics:
 **Issue**: Out of memory
 
 - Netlify Functions have 1024MB memory limit
-- Puppeteer with chrome-aws-lambda is optimized for this
+- Puppeteer Core with @sparticuz/chromium is optimized for this
 - Consider reducing HTML snippet size if needed
 
 ### Environment Variable Issues
