@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from openai import OpenAI
 from ..config import settings
 
@@ -96,6 +96,3 @@ Return ONLY the JSON array, no additional text or explanation."""
         error_msg = f"Error analyzing website with AI: {str(e)}"
         logger.error(error_msg)
         return [], False, error_msg
-
-
-from typing import Tuple
