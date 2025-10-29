@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Search, Loader2 } from "lucide-react";
-import { SplineScene } from "./spline";
+import { SplineScene } from "./splite";
 import { Spotlight } from "./spotlight";
 import { Card, CardContent } from "./card";
 import { motion } from "framer-motion";
