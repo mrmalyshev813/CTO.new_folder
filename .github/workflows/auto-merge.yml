@@ -1,0 +1,265 @@
+name: Auto-merge cto.new PRs
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'cto-ai-app[bot]' || github.event.pull_request.user.login == 'cto-new[bot]'
+    
+    steps:
+      - name: Check if PR is from cto.new bot
+        id: check_author
+        run: |
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          echo "PR author: $PR_AUTHOR"
+          
+          if [[ "$PR_AUTHOR" == "cto-ai-app[bot]" ]] || [[ "$PR_AUTHOR" == "cto-new[bot]" ]]; then
+            echo "✅ PR is from cto.new bot"
+            echo "is_cto_bot=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ PR is not from cto.new bot"
+            echo "is_cto_bot=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+      - name: Check for no-auto-merge label
+        id: check_label
+        if: steps.check_author.outputs.is_cto_bot == 'true'
+        run: |
+          LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+          echo "PR labels: $LABELS"
+          
+          if echo "$LABELS" | grep -q "no-auto-merge"; then
+            echo "⏸️ PR has 'no-auto-merge' label, skipping auto-merge"
+            echo "should_merge=false" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "should_merge=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for merge conflicts
+        id: check_conflicts
+        if: steps.check_label.outputs.should_merge == 'true'
+        run: |
+          MERGEABLE="${{ github.event.pull_request.mergeable }}"
+          echo "Mergeable status: $MERGEABLE"
+          
+          if [[ "$MERGEABLE" == "false" ]]; then
+            echo "⚠️ PR has merge conflicts, cannot auto-merge"
+            echo "has_conflicts=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No merge conflicts detected"
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for required checks to pass
+        id: wait_checks
+        if: steps.check_conflicts.outputs.has_conflicts == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = context.payload.pull_request.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            
+            console.log(`Checking status checks for PR #${pr_number}...`);
+            
+            // Get the latest commit on the PR
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: pr_number
+            });
+            
+            const sha = pr.head.sha;
+            
+            // Check if there are any required status checks
+            try {
+              const { data: branchProtection } = await github.rest.repos.getBranchProtection({
+                owner,
+                repo,
+                branch: pr.base.ref
+              }).catch(() => ({ data: null }));
+              
+              if (branchProtection && branchProtection.required_status_checks) {
+                console.log('Required status checks found:', branchProtection.required_status_checks.contexts);
+              } else {
+                console.log('No required status checks configured');
+              }
+            } catch (error) {
+              console.log('No branch protection rules configured, proceeding...');
+            }
+            
+            // Get all check runs for the commit
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner,
+              repo,
+              ref: sha
+            });
+            
+            console.log(`Found ${checkRuns.check_runs.length} check runs`);
+            
+            // Get commit status
+            const { data: statuses } = await github.rest.repos.getCombinedStatusForRef({
+              owner,
+              repo,
+              ref: sha
+            });
+            
+            console.log(`Combined status state: ${statuses.state}`);
+            
+            // Check if any checks are pending or failing
+            const pendingChecks = checkRuns.check_runs.filter(check => 
+              check.status !== 'completed'
+            );
+            
+            const failedChecks = checkRuns.check_runs.filter(check => 
+              check.status === 'completed' && check.conclusion !== 'success' && check.conclusion !== 'neutral' && check.conclusion !== 'skipped'
+            );
+            
+            if (pendingChecks.length > 0) {
+              console.log(`⏳ ${pendingChecks.length} checks are still pending`);
+              core.setOutput('checks_passed', 'pending');
+              return;
+            }
+            
+            if (failedChecks.length > 0) {
+              console.log(`❌ ${failedChecks.length} checks failed:`, failedChecks.map(c => c.name));
+              core.setOutput('checks_passed', 'false');
+              return;
+            }
+            
+            if (statuses.state === 'failure' || statuses.state === 'error') {
+              console.log('❌ Commit status checks failed');
+              core.setOutput('checks_passed', 'false');
+              return;
+            }
+            
+            if (statuses.state === 'pending') {
+              console.log('⏳ Some status checks are still pending');
+              core.setOutput('checks_passed', 'pending');
+              return;
+            }
+            
+            console.log('✅ All checks passed or no checks required');
+            core.setOutput('checks_passed', 'true');
+
+      - name: Approve PR
+        id: approve
+        if: steps.wait_checks.outputs.checks_passed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = context.payload.pull_request.number;
+            
+            console.log(`Approving PR #${pr_number}...`);
+            
+            try {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr_number,
+                event: 'APPROVE',
+                body: '✅ Auto-approved by cto.new auto-merge workflow'
+              });
+              console.log('✅ PR approved successfully');
+            } catch (error) {
+              console.log('Note: Could not approve (this is normal if already approved):', error.message);
+            }
+
+      - name: Add auto-merged label
+        if: steps.wait_checks.outputs.checks_passed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = context.payload.pull_request.number;
+            
+            console.log(`Adding 'auto-merged' label to PR #${pr_number}...`);
+            
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr_number,
+                labels: ['auto-merged']
+              });
+              console.log('✅ Label added successfully');
+            } catch (error) {
+              console.log('Note: Could not add label (label may need to be created):', error.message);
+            }
+
+      - name: Merge PR
+        id: merge
+        if: steps.wait_checks.outputs.checks_passed == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = context.payload.pull_request.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            
+            console.log(`Attempting to merge PR #${pr_number}...`);
+            
+            try {
+              const result = await github.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: pr_number,
+                merge_method: 'merge',
+                commit_title: `Auto-merge PR #${pr_number} from cto.new`,
+                commit_message: 'Automatically merged by cto.new auto-merge workflow'
+              });
+              
+              if (result.data.merged) {
+                console.log('✅ PR merged successfully!');
+                console.log('Merge commit SHA:', result.data.sha);
+                
+                // Add a comment to the PR
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pr_number,
+                  body: '🎉 This PR has been automatically merged by the cto.new auto-merge workflow!'
+                });
+              } else {
+                console.log('⚠️ PR was not merged:', result.data.message);
+              }
+            } catch (error) {
+              console.log('❌ Failed to merge PR:', error.message);
+              
+              // Add a comment about the failure
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pr_number,
+                body: `⚠️ Auto-merge failed: ${error.message}\n\nPlease merge manually.`
+              });
+              
+              throw error;
+            }
+
+      - name: Log completion
+        if: always()
+        run: |
+          echo "=== Auto-merge workflow completed ==="
+          echo "PR Author: ${{ github.event.pull_request.user.login }}"
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "PR Title: ${{ github.event.pull_request.title }}"
+          echo "Checks Passed: ${{ steps.wait_checks.outputs.checks_passed }}"
+          echo "====================================="
