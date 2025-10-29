@@ -1,0 +1,32 @@
+{
+  "name": "ad-placement-analyzer",
+  "version": "1.0.0",
+  "description": "A web service that analyzes websites for ad placement opportunities using GPT-4o-mini",
+  "main": "index.js",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step required'",
+    "deploy": "netlify deploy --prod",
+    "test": "node test-functions.js"
+  },
+  "keywords": [
+    "ad-placement",
+    "web-analysis",
+    "openai",
+    "netlify"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chrome-aws-lambda": "^10.1.0",
+    "puppeteer-core": "^10.4.0",
+    "openai": "^4.20.1",
+    "cheerio": "^1.0.0-rc.12",
+    "docx": "^8.5.0",
+    "pdfkit": "^0.13.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.10.1"
+  }
+}
