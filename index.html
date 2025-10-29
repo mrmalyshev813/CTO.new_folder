@@ -284,11 +284,35 @@
                 });
                 
                 console.log('📡 Response status:', response.status);
+                console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
                 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    let errorData;
+                    const contentType = response.headers.get('content-type');
+                    console.log('📡 Error response content-type:', contentType);
+                    
+                    try {
+                        // Try to parse as JSON
+                        const responseText = await response.text();
+                        console.log('📡 Raw error response:', responseText.substring(0, 500));
+                        
+                        if (contentType && contentType.includes('application/json')) {
+                            errorData = JSON.parse(responseText);
+                        } else {
+                            // If not JSON, treat as plain text error
+                            errorData = { 
+                                error: `Server returned non-JSON response (${response.status}): ${responseText.substring(0, 200)}` 
+                            };
+                        }
+                    } catch (parseError) {
+                        console.error('❌ Failed to parse error response:', parseError);
+                        errorData = { 
+                            error: `Server error (${response.status}): Unable to parse response. Check console for details.` 
+                        };
+                    }
+                    
                     console.error('❌ Server error:', errorData);
-                    throw new Error(errorData.error || 'Ошибка анализа');
+                    throw new Error(errorData.error || `Ошибка сервера (${response.status})`);
                 }
                 
                 const data = await response.json();
@@ -317,7 +341,18 @@
                 results.innerHTML = zonesHtml + proposalHtml;
                 console.log('✅ Results displayed successfully');
             } catch (error) {
-                results.innerHTML = `<p style="color: #ff4444;">❌ Ошибка: ${error.message}</p>`;
+                let errorMessage = error.message;
+                
+                // Check for network errors
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    errorMessage = 'Ошибка сети: Не удалось подключиться к серверу. Проверьте подключение к интернету.';
+                } else if (error.name === 'TypeError') {
+                    errorMessage = `Ошибка типа: ${error.message}. Проверьте правильность введенного URL.`;
+                } else if (error.message.includes('timeout')) {
+                    errorMessage = 'Превышено время ожидания. Попробуйте другой сайт или повторите попытку позже.';
+                }
+                
+                results.innerHTML = `<p style="color: #ff4444;">❌ Ошибка: ${errorMessage}</p>`;
                 console.error('❌ Search error:', error);
                 console.error('Error details:', {
                     name: error.name,

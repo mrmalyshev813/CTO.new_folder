@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 Running pre-push checks..."
+
+# Validate JavaScript syntax
+echo "✅ Validating JavaScript files..."
+npm run validate:js || exit 1
+
+# Validate HTML
+echo "✅ Validating HTML files..."
+npm run validate:html || exit 1
+
+# Run ESLint
+echo "✅ Running ESLint..."
+npm run lint:check || exit 1
+
+echo "✅ All pre-push checks passed! Ready to push."

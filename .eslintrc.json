@@ -1,3 +1,18 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-require-imports": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", {
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_|err|context|reject"
+    }]
+  },
+  "overrides": [
+    {
+      "files": ["netlify/functions/**/*.js"],
+      "rules": {
+        "@typescript-eslint/no-require-imports": "off"
+      }
+    }
+  ]
 }
