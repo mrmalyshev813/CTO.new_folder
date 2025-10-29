@@ -1,5 +1,9 @@
 [build]
   publish = "."
+
+[functions]
+  # Set function timeout to 26 seconds (max for most Netlify tiers)
+  node_bundler = "esbuild"
   
 [[redirects]]
   from = "/*"
