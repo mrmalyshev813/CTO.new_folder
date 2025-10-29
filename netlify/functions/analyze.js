@@ -41,9 +41,51 @@ function getFriendlyCrawlError(error) {
   return 'We were unable to load the website. Please try again or use a different URL.';
 }
 
+function normalizeUrl(url) {
+  console.log('🔍 Normalizing URL:', url);
+  
+  try {
+    // Remove whitespace
+    url = url.trim();
+    
+    // Add https:// if no protocol is present
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+      console.log('✅ Added https:// prefix');
+    }
+    
+    // Validate URL format
+    const urlObj = new URL(url);
+    console.log('✅ URL is valid:', urlObj.href);
+    
+    return {
+      url: urlObj.href,
+      success: true,
+      error: null
+    };
+  } catch (error) {
+    console.error('❌ URL normalization failed:', error.message);
+    return {
+      url: null,
+      success: false,
+      error: `Invalid URL format: ${error.message}`
+    };
+  }
+}
+
 async function crawlWebsite(url) {
+  console.log('🔍 Starting website crawl for:', url);
+  
   let browser = null;
   try {
+    // Normalize and validate URL
+    const normalizeResult = normalizeUrl(url);
+    if (!normalizeResult.success) {
+      throw new Error(normalizeResult.error);
+    }
+    url = normalizeResult.url;
+    
+    console.log('🚀 Launching browser...');
     const executablePath = await chromium.executablePath();
     browser = await puppeteer.launch({
       args: chromium.args,
@@ -53,22 +95,40 @@ async function crawlWebsite(url) {
       ignoreHTTPSErrors: true,
     });
 
+    console.log('✅ Browser launched successfully');
+    console.log('📄 Creating new page...');
+    
     const page = await browser.newPage();
+    
+    console.log('🌐 Navigating to URL:', url);
     await page.goto(url, { 
       waitUntil: 'networkidle0', 
       timeout: 30000 
     });
 
+    console.log('✅ Page loaded successfully');
+    console.log('📸 Taking screenshot...');
+    
     const screenshotBuffer = await page.screenshot({ 
       fullPage: true, 
       type: 'png' 
     });
+    
+    console.log('✅ Screenshot captured');
+    console.log('📄 Extracting HTML content...');
+    
     const htmlContent = await page.content();
 
+    console.log(`✅ HTML extracted (${htmlContent.length} characters)`);
+    console.log('🔒 Closing browser...');
+    
     await browser.close();
+    console.log('✅ Browser closed');
 
     const $ = cheerio.load(htmlContent);
     const cleanedHtml = $.html();
+
+    console.log('✅ Website crawl completed successfully');
 
     return {
       screenshot: screenshotBuffer,
@@ -80,12 +140,18 @@ async function crawlWebsite(url) {
     if (browser) {
       try {
         await browser.close();
+        console.log('🔒 Browser closed after error');
       } catch (closeErr) {
-        console.warn('Failed to close browser after error:', closeErr.message);
+        console.warn('⚠️ Failed to close browser after error:', closeErr.message);
       }
     }
 
-    console.error(`crawlWebsite failed for ${url}:`, error);
+    console.error('❌ crawlWebsite failed for:', url);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
 
     return {
       screenshot: null,
@@ -97,14 +163,24 @@ async function crawlWebsite(url) {
 }
 
 async function analyzeWithAI(url, htmlContent) {
+  console.log('🤖 Starting AI analysis for:', url);
+  
   try {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     });
 
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
+    console.log('✅ OpenAI client initialized');
+
     const htmlSnippet = htmlContent.length > 5000 
       ? htmlContent.substring(0, 5000) 
       : htmlContent;
+
+    console.log(`📄 HTML snippet length: ${htmlSnippet.length} characters`);
 
     const prompt = `You are an expert in web advertising and ad placement optimization.
 
@@ -127,15 +203,18 @@ For each zone you identify as present and suitable for ads, assign one of these 
 - medium: Moderate visibility and engagement
 - low: Present but less optimal
 
-Return ONLY a JSON array with this exact format:
-[
-  {"zone": "Header", "priority": "high"},
-  {"zone": "Sidebar", "priority": "medium"},
-  ...
-]
+Return a JSON object with a "zones" array containing objects with this exact format:
+{
+  "zones": [
+    {"zone": "Header", "priority": "high"},
+    {"zone": "Sidebar", "priority": "medium"}
+  ]
+}
 
 Important: Only include zones that actually exist on the website. Do not include all zones by default.
-Return ONLY the JSON array, no additional text or explanation.`;
+Return ONLY valid JSON, no additional text or explanation.`;
+
+    console.log('📡 Calling OpenAI API...');
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -149,12 +228,17 @@ Return ONLY the JSON array, no additional text or explanation.`;
           content: prompt 
         }
       ],
+      response_format: { type: 'json_object' },
       temperature: 0.3,
       max_tokens: 500
     });
 
-    let content = response.choices[0].message.content.trim();
+    console.log('✅ OpenAI API response received');
 
+    let content = response.choices[0].message.content.trim();
+    console.log('📥 Raw AI response:', content.substring(0, 200) + '...');
+
+    // Clean up markdown code blocks if present
     if (content.startsWith('```json')) {
       content = content.substring(7);
     }
@@ -166,17 +250,39 @@ Return ONLY the JSON array, no additional text or explanation.`;
     }
     content = content.trim();
 
-    const zones = JSON.parse(content);
+    console.log('🧹 Cleaned AI response:', content.substring(0, 200) + '...');
 
-    if (!Array.isArray(zones)) {
-      throw new Error('AI response is not an array');
+    let parsedData;
+    try {
+      parsedData = JSON.parse(content);
+      console.log('✅ Successfully parsed JSON response');
+    } catch (parseError) {
+      console.error('❌ JSON parse error:', parseError.message);
+      console.error('❌ Failed content:', content);
+      throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
     }
 
+    // Handle both array and object formats
+    let zones;
+    if (Array.isArray(parsedData)) {
+      zones = parsedData;
+    } else if (parsedData.zones && Array.isArray(parsedData.zones)) {
+      zones = parsedData.zones;
+    } else {
+      throw new Error('AI response does not contain a valid zones array');
+    }
+
+    console.log(`✅ Found ${zones.length} zones`);
+
+    // Validate zone format
     for (const zone of zones) {
       if (!zone.zone || !zone.priority) {
+        console.error('❌ Invalid zone format:', zone);
         throw new Error('Invalid zone format in AI response');
       }
     }
+
+    console.log('✅ AI analysis completed successfully');
 
     return {
       zones,
@@ -184,6 +290,13 @@ Return ONLY the JSON array, no additional text or explanation.`;
       error: null
     };
   } catch (error) {
+    console.error('❌ Error in analyzeWithAI:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+
     return {
       zones: [],
       success: false,
@@ -344,7 +457,11 @@ async function createPDF(proposalText, analysisId) {
 }
 
 exports.handler = async (event, context) => {
+  console.log('🚀 Analyze function called');
+  console.log('HTTP Method:', event.httpMethod);
+  
   if (event.httpMethod !== 'POST') {
+    console.log('❌ Invalid HTTP method');
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method not allowed' })
@@ -352,18 +469,26 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    console.log('📥 Parsing request body...');
     const { url } = JSON.parse(event.body);
 
     if (!url) {
+      console.log('❌ URL is missing from request');
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'URL is required' })
       };
     }
 
+    console.log('✅ Request validated, URL:', url);
+    console.log('==========================================');
+    console.log('STEP 1: Crawling website');
+    console.log('==========================================');
+
     const crawlResult = await crawlWebsite(url);
 
     if (!crawlResult.success) {
+      console.log('❌ Crawl failed:', crawlResult.error);
       return {
         statusCode: 400,
         body: JSON.stringify({ 
@@ -372,9 +497,15 @@ exports.handler = async (event, context) => {
       };
     }
 
+    console.log('✅ Crawl completed successfully');
+    console.log('==========================================');
+    console.log('STEP 2: Analyzing with AI');
+    console.log('==========================================');
+
     const aiResult = await analyzeWithAI(url, crawlResult.html);
 
     if (!aiResult.success) {
+      console.log('❌ AI analysis failed:', aiResult.error);
       return {
         statusCode: 500,
         body: JSON.stringify({ 
@@ -383,8 +514,15 @@ exports.handler = async (event, context) => {
       };
     }
 
+    console.log('✅ AI analysis completed successfully');
+    console.log('==========================================');
+    console.log('STEP 3: Generating proposal');
+    console.log('==========================================');
+
     const proposalText = generateProposal(url, aiResult.zones);
     const analysisId = uuidv4();
+
+    console.log('✅ Proposal generated, Analysis ID:', analysisId);
 
     analysisCache.set(analysisId, {
       url,
@@ -393,8 +531,29 @@ exports.handler = async (event, context) => {
       screenshot: crawlResult.screenshot
     });
 
+    console.log('✅ Result cached');
+    console.log('==========================================');
+    console.log('STEP 4: Creating export files');
+    console.log('==========================================');
+
     const docxResult = await createDOCX(proposalText, analysisId);
     const pdfResult = await createPDF(proposalText, analysisId);
+
+    if (docxResult.success) {
+      console.log('✅ DOCX file created');
+    } else {
+      console.log('⚠️ DOCX creation failed:', docxResult.error);
+    }
+
+    if (pdfResult.success) {
+      console.log('✅ PDF file created');
+    } else {
+      console.log('⚠️ PDF creation failed:', pdfResult.error);
+    }
+
+    console.log('==========================================');
+    console.log('✅ Analysis complete!');
+    console.log('==========================================');
 
     return {
       statusCode: 200,
@@ -411,7 +570,13 @@ exports.handler = async (event, context) => {
       })
     };
   } catch (error) {
-    console.error('Error in analyze function:', error);
+    console.error('❌ Error in analyze function:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
     return {
       statusCode: 500,
       body: JSON.stringify({ 
