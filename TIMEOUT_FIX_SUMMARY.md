@@ -53,7 +53,7 @@ await page.goto(url, {
 });
 
 // Wait a bit for dynamic content to load
-await page.waitForTimeout(2000);
+await new Promise(resolve => setTimeout(resolve, 2000));
 ```
 
 **Benefits**:

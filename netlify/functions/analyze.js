@@ -110,7 +110,7 @@ async function crawlWebsite(url) {
     
     // Wait a bit for dynamic content to load
     console.log('⏳ Waiting for dynamic content...');
-    await page.waitForTimeout(2000);
+    await new Promise(resolve => setTimeout(resolve, 2000));
     console.log('📸 Taking screenshot...');
     
     const screenshotBuffer = await page.screenshot({ 

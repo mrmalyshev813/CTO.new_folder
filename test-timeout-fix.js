@@ -43,10 +43,10 @@ test(
   'page.goto timeout should be 20000ms or less'
 );
 
-// Test 3: Check that waitForTimeout is added after page load
+// Test 3: Check that dynamic wait is added after page load
 test(
   'Dynamic content wait is implemented',
-  analyzeContent.includes('waitForTimeout'),
+  analyzeContent.includes('await new Promise') || analyzeContent.includes('waitForTimeout'),
   'Should wait for dynamic content after page load'
 );
 
