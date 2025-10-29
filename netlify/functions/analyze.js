@@ -378,7 +378,7 @@ async function createDOCX(proposalText, analysisId) {
     
     try {
       await fs.mkdir(tmpDir, { recursive: true });
-    } catch (err) {
+    } catch {
       // Directory might already exist
     }
     
@@ -405,13 +405,13 @@ async function createPDF(proposalText, analysisId) {
     
     try {
       await fs.mkdir(tmpDir, { recursive: true });
-    } catch (err) {
+    } catch {
       // Directory might already exist
     }
     
     const filePath = path.join(tmpDir, `${analysisId}.pdf`);
     
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       const doc = new PDFDocument();
       const stream = require('fs').createWriteStream(filePath);
 
@@ -456,7 +456,7 @@ async function createPDF(proposalText, analysisId) {
   }
 }
 
-exports.handler = async (event, context) => {
+exports.handler = async (event, _context) => {
   console.log('🚀 Analyze function called');
   console.log('HTTP Method:', event.httpMethod);
   

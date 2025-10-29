@@ -6,37 +6,53 @@
     "dev": "echo \"Open index.html directly in your browser\"",
     "build": "echo \"Static site - no build step required\"",
     "start": "echo \"Static site - use any HTTP server to serve index.html\"",
-    "lint": "echo \"No linting required for static HTML\""
+    "lint": "eslint netlify/functions/**/*.js --fix",
+    "lint:check": "eslint netlify/functions/**/*.js",
+    "validate:js": "node -c netlify/functions/analyze.js && node -c netlify/functions/export-docx.js && node -c netlify/functions/export-pdf.js",
+    "validate:html": "node -e \"const fs = require('fs'); const html = fs.readFileSync('index.html', 'utf8'); if (!html.includes('<!DOCTYPE html>')) { throw new Error('Invalid HTML'); } console.log('HTML is valid');\"",
+    "prepare": "husky",
+    "precommit": "npm run validate:js && npm run validate:html && npm run lint:check"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^131.0.1",
+    "@splinetool/react-spline": "^4.0.0",
+    "@splinetool/runtime": "^1.9.26",
+    "cheerio": "^1.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "docx": "^8.5.0",
+    "framer-motion": "^11.11.11",
+    "lucide-react": "^0.454.0",
     "next": "^15.0.0",
+    "openai": "^4.20.1",
+    "pdfkit": "^0.15.0",
+    "puppeteer-core": "^23.7.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@splinetool/runtime": "^1.9.26",
-    "@splinetool/react-spline": "^4.0.0",
-    "framer-motion": "^11.11.11",
-    "openai": "^4.20.1",
-    "lucide-react": "^0.454.0",
-    "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.4",
-    "class-variance-authority": "^0.7.1",
-    "@sparticuz/chromium": "^131.0.1",
-    "puppeteer-core": "^23.7.1",
-    "cheerio": "^1.0.0",
-    "uuid": "^11.0.3",
-    "docx": "^8.5.0",
-    "pdfkit": "^0.15.0"
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
     "@types/node": "^22.8.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "tailwindcss-animate": "^1.0.7",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "^15.0.0"
+    "typescript": "^5.6.3"
+  },
+  "lint-staged": {
+    "netlify/functions/**/*.js": [
+      "eslint --fix",
+      "node -c"
+    ],
+    "*.html": [
+      "node -e \"const fs = require('fs'); const html = fs.readFileSync(process.argv[1], 'utf8'); if (!html.includes('<!DOCTYPE html>')) { throw new Error('Invalid HTML'); }\""
+    ]
   }
 }

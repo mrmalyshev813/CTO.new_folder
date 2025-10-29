@@ -193,6 +193,23 @@ npm run test
 npm run test:e2e
 ```
 
+### Code Quality Checks
+
+This project uses pre-commit and pre-push hooks to ensure code quality:
+
+```bash
+# Run all validation checks manually
+npm run precommit
+
+# Individual checks
+npm run validate:js     # Validate JavaScript syntax
+npm run validate:html   # Validate HTML structure
+npm run lint:check      # Run ESLint
+npm run lint            # Run ESLint with auto-fix
+```
+
+See [PRE_COMMIT_CHECKS.md](PRE_COMMIT_CHECKS.md) for detailed documentation.
+
 ### Test Checklist
 
 - ✅ Website crawling with Puppeteer Core + @sparticuz/chromium
@@ -319,6 +336,8 @@ The auto-merge workflow is defined in `.github/workflows/auto-merge.yml` and inc
 ## Documentation
 
 - **[README.md](README.md)** - This file, setup and deployment instructions
+- **[PRE_COMMIT_CHECKS.md](PRE_COMMIT_CHECKS.md)** - Guide for pre-commit hooks and code quality checks
+- **[CHANGELOG_BUGFIX.md](CHANGELOG_BUGFIX.md)** - Recent bugfixes and improvements
 - **[QUICK_START.md](QUICK_START.md)** - Quick setup guide
 - **[TEST_RESULTS.md](TEST_RESULTS.md)** - Comprehensive test report
 - **[NETLIFY_PUPPETEER_FIX.md](NETLIFY_PUPPETEER_FIX.md)** - Puppeteer fix details and test results

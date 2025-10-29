@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-exports.handler = async (event, context) => {
+exports.handler = async (event, _context) => {
   if (event.httpMethod !== 'GET') {
     return {
       statusCode: 405,
@@ -35,7 +35,7 @@ exports.handler = async (event, context) => {
         body: fileContent.toString('base64'),
         isBase64Encoded: true
       };
-    } catch (fileError) {
+    } catch {
       return {
         statusCode: 404,
         body: JSON.stringify({ error: 'PDF file not found' })
