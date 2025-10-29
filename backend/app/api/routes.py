@@ -40,19 +40,26 @@ async def analyze_website(request: AnalyzeRequest):
         logger.error(f"Failed to crawl website: {error}")
         raise HTTPException(status_code=400, detail=f"Failed to crawl website: {error}")
     
-    zones, ai_success, ai_error = analyze_website_with_ai(url, html_content)
+    analysis_result, ai_success, ai_error = analyze_website_with_ai(url, html_content)
     
     if not ai_success:
         logger.error(f"Failed to analyze with AI: {ai_error}")
         raise HTTPException(status_code=500, detail=f"Failed to analyze website: {ai_error}")
     
-    proposal_text = generate_proposal(url, zones)
+    proposal_text = generate_proposal(
+        url, 
+        analysis_result["siteType"], 
+        analysis_result["trafficEstimate"], 
+        analysis_result["zones"]
+    )
     
     analysis_id = str(uuid.uuid4())
     
     analysis_cache[analysis_id] = {
         "url": url,
-        "zones": zones,
+        "site_type": analysis_result["siteType"],
+        "traffic_estimate": analysis_result["trafficEstimate"],
+        "zones": analysis_result["zones"],
         "proposal_text": proposal_text,
         "screenshot_bytes": screenshot_bytes
     }
@@ -69,7 +76,7 @@ async def analyze_website(request: AnalyzeRequest):
     
     return AnalyzeResponse(
         proposal_text=proposal_text,
-        zones=zones,
+        zones=analysis_result["zones"],
         analysis_id=analysis_id
     )
 

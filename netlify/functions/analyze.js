@@ -102,8 +102,8 @@ async function analyzeWithAI(url, htmlContent) {
       apiKey: process.env.OPENAI_API_KEY
     });
 
-    const htmlSnippet = htmlContent.length > 5000 
-      ? htmlContent.substring(0, 5000) 
+    const htmlSnippet = htmlContent.length > 8000 
+      ? htmlContent.substring(0, 8000) 
       : htmlContent;
 
     const prompt = `You are an expert in web advertising and ad placement optimization.
@@ -113,29 +113,51 @@ Analyze the following website: ${url}
 HTML structure (snippet):
 ${htmlSnippet}
 
-Identify the optimal ad placement zones on this website. For each zone, assign a priority level.
+Perform a comprehensive analysis and provide the following information:
 
-Available zones:
-- Header: Top of the page, navigation area
-- Sidebar: Left or right sidebar areas
-- Content: Within the main content area
-- Footer: Bottom of the page
-- Popup: Overlay or modal opportunities
+1. SITE TYPE: Determine the category of the website (e.g., news portal, e-commerce, blog, corporate site, forum, entertainment, educational, etc.)
 
-For each zone you identify as present and suitable for ads, assign one of these priorities:
-- high: Highly visible, high engagement potential
-- medium: Moderate visibility and engagement
-- low: Present but less optimal
+2. TRAFFIC ESTIMATE: Based on the site's structure, content volume, and complexity, provide a rough traffic estimate category:
+   - low: Small site, likely under 1000 visitors/day
+   - medium: Medium-sized site, 1000-10000 visitors/day
+   - high: Large site with rich content, 10000-100000 visitors/day
+   - very_high: Major site, likely over 100000 visitors/day
 
-Return ONLY a JSON array with this exact format:
-[
-  {"zone": "Header", "priority": "high"},
-  {"zone": "Sidebar", "priority": "medium"},
-  ...
-]
+3. AD OCCUPANCY: Analyze if the site already has advertising placements. Look for:
+   - Ad networks (Google AdSense, Yandex.Direct, etc.)
+   - Banner placeholders or ad slots
+   - Affiliate links
+   - Sponsored content markers
+   For each zone, indicate if it's "occupied" (already has ads) or "free" (available for ads)
 
-Important: Only include zones that actually exist on the website. Do not include all zones by default.
-Return ONLY the JSON array, no additional text or explanation.`;
+4. AD PLACEMENT ZONES: Identify optimal ad placement zones on this website. For each zone:
+   - Name the zone (Header, Sidebar, Content, Footer, Popup)
+   - Assign priority (high, medium, low)
+   - Indicate occupancy status (occupied or free)
+   - Provide a brief reason why this zone is good for ads
+
+Return ONLY a JSON object with this exact format:
+{
+  "siteType": "news portal",
+  "trafficEstimate": "high",
+  "zones": [
+    {
+      "zone": "Header",
+      "priority": "high",
+      "occupancy": "free",
+      "reason": "Prime visibility, first thing users see"
+    },
+    {
+      "zone": "Sidebar",
+      "priority": "medium",
+      "occupancy": "occupied",
+      "reason": "Good visibility but already has Google AdSense"
+    }
+  ]
+}
+
+Important: Only include zones that actually exist on the website. Provide realistic analysis based on the HTML content.
+Return ONLY the JSON object, no additional text or explanation.`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -150,7 +172,7 @@ Return ONLY the JSON array, no additional text or explanation.`;
         }
       ],
       temperature: 0.3,
-      max_tokens: 500
+      max_tokens: 1000
     });
 
     let content = response.choices[0].message.content.trim();
@@ -166,25 +188,29 @@ Return ONLY the JSON array, no additional text or explanation.`;
     }
     content = content.trim();
 
-    const zones = JSON.parse(content);
+    const analysis = JSON.parse(content);
 
-    if (!Array.isArray(zones)) {
-      throw new Error('AI response is not an array');
+    if (!analysis.zones || !Array.isArray(analysis.zones)) {
+      throw new Error('AI response does not contain valid zones array');
     }
 
-    for (const zone of zones) {
-      if (!zone.zone || !zone.priority) {
+    for (const zone of analysis.zones) {
+      if (!zone.zone || !zone.priority || !zone.occupancy) {
         throw new Error('Invalid zone format in AI response');
       }
     }
 
     return {
-      zones,
+      siteType: analysis.siteType || 'unknown',
+      trafficEstimate: analysis.trafficEstimate || 'medium',
+      zones: analysis.zones,
       success: true,
       error: null
     };
   } catch (error) {
     return {
+      siteType: 'unknown',
+      trafficEstimate: 'medium',
       zones: [],
       success: false,
       error: error.message
@@ -192,43 +218,165 @@ Return ONLY the JSON array, no additional text or explanation.`;
   }
 }
 
-function generateProposal(url, zones) {
+function generateProposal(url, siteType, trafficEstimate, zones) {
   const proposalLines = [
-    `Subject: Предложение по рекламе на сайте ${url}`,
+    `Subject: Увеличьте доход от ${url} с Adlook - индивидуальное предложение`,
     '',
     'Здравствуйте!',
-    '',
-    `Прежде всего хочу поздравить вас с успешным развитием вашего ресурса. ${url} привлекает широкую аудиторию. Мы в Adlook уверены, что грамотное размещение рекламы позволит значительно увеличить доход.`,
-    '',
-    'Немного о нас: Adlook — это российская SSP-платформа (Supply-Side Platform), основанная в 2018 году в Санкт-Петербурге. Мы помогаем владельцам сайтов монетизировать свои ресурсы.',
-    '',
-    'Мы проанализировали ваш сайт и выделили несколько эффективных зон:'
+    ''
   ];
 
-  const priorityZones = zones.filter(z => 
-    ['high', 'medium', 'low'].includes(z.priority)
-  );
+  const siteTypeDescriptions = {
+    'news portal': 'новостного портала',
+    'news': 'новостного портала',
+    'e-commerce': 'интернет-магазина',
+    'blog': 'блога',
+    'corporate site': 'корпоративного сайта',
+    'corporate': 'корпоративного сайта',
+    'forum': 'форума',
+    'entertainment': 'развлекательного ресурса',
+    'educational': 'образовательного портала',
+    'magazine': 'онлайн-журнала',
+    'media': 'медиа-ресурса'
+  };
 
-  if (priorityZones.length > 0) {
-    priorityZones.forEach((zone, idx) => {
-      proposalLines.push(`${idx + 1}. ${zone.zone} – ${zone.priority} level`);
-    });
-  } else {
-    proposalLines.push('Не удалось определить конкретные зоны.');
+  const siteTypeRu = siteTypeDescriptions[siteType.toLowerCase()] || 'веб-ресурса';
+
+  const trafficDescriptions = {
+    'low': 'стабильной аудиторией',
+    'medium': 'активной аудиторией',
+    'high': 'внушительным трафиком',
+    'very_high': 'огромной аудиторией'
+  };
+
+  const trafficDesc = trafficDescriptions[trafficEstimate] || 'растущей аудиторией';
+
+  proposalLines.push(
+    `Я изучил ваш проект ${url} и был впечатлен! Вижу, что у вас качественный ${siteTypeRu} с ${trafficDesc}. Это отличная база для масштабирования монетизации.`
+  );
+  proposalLines.push('');
+
+  const freeZones = zones.filter(z => z.occupancy === 'free');
+  const occupiedZones = zones.filter(z => z.occupancy === 'occupied');
+
+  if (occupiedZones.length > 0) {
+    proposalLines.push(
+      `Я заметил, что у вас уже есть реклама на сайте. Это хорошо - значит, вы уже монетизируете трафик. Однако мы можем помочь увеличить доход на 30-50% за счёт оптимизации существующих мест и использования свободных зон.`
+    );
+    proposalLines.push('');
   }
 
   proposalLines.push(
-    '',
-    'Потенциальный доход: от 50,000 до 150,000 рублей в месяц.',
-    '',
-    'Что мы предлагаем:',
-    '- Сроки размещения: от одного месяца',
-    '- Форматы: баннеры, контекстная реклама, всплывающие окна',
-    '- Программная настройка рекламы под ваш сайт',
-    '',
-    'С уважением,',
-    'Менеджер по работе с партнёрами, Adlook'
+    'Немного о нас: Adlook — это российская SSP-платформа (Supply-Side Platform), основанная в 2018 году в Санкт-Петербурге. Мы помогаем владельцам сайтов монетизировать свои ресурсы через прямую интеграцию с крупнейшими рекламодателями.'
   );
+  proposalLines.push('');
+
+  proposalLines.push('Результаты анализа вашего сайта:');
+  proposalLines.push('');
+
+  if (freeZones.length > 0) {
+    proposalLines.push('ДОСТУПНЫЕ ЗОНЫ ДЛЯ РАЗМЕЩЕНИЯ (свободны):');
+    freeZones.forEach((zone, idx) => {
+      const priorityRu = {
+        'high': 'высокий приоритет',
+        'medium': 'средний приоритет',
+        'low': 'низкий приоритет'
+      }[zone.priority] || zone.priority;
+      
+      proposalLines.push(`${idx + 1}. ${zone.zone} (${priorityRu})`);
+      if (zone.reason) {
+        proposalLines.push(`   ${zone.reason}`);
+      }
+    });
+    proposalLines.push('');
+  }
+
+  if (occupiedZones.length > 0) {
+    proposalLines.push('ЗАНЯТЫЕ ЗОНЫ (требуют оптимизации):');
+    occupiedZones.forEach((zone, idx) => {
+      const priorityRu = {
+        'high': 'высокий приоритет',
+        'medium': 'средний приоритет',
+        'low': 'низкий приоритет'
+      }[zone.priority] || zone.priority;
+      
+      proposalLines.push(`${idx + 1}. ${zone.zone} (${priorityRu})`);
+      if (zone.reason) {
+        proposalLines.push(`   ${zone.reason}`);
+      }
+    });
+    proposalLines.push('');
+  }
+
+  const revenueEstimates = {
+    'low': { min: 20000, max: 60000 },
+    'medium': { min: 50000, max: 150000 },
+    'high': { min: 150000, max: 500000 },
+    'very_high': { min: 500000, max: 2000000 }
+  };
+
+  const revenue = revenueEstimates[trafficEstimate] || revenueEstimates['medium'];
+
+  proposalLines.push('ВАШИ ВЫГОДЫ ОТ СОТРУДНИЧЕСТВА С ADLOOK:');
+  proposalLines.push('');
+  proposalLines.push(`1. УВЕЛИЧЕНИЕ ДОХОДА: от ${revenue.min.toLocaleString('ru-RU')} до ${revenue.max.toLocaleString('ru-RU')} рублей в месяц`);
+  
+  if (occupiedZones.length > 0) {
+    proposalLines.push('   Даже при наличии текущей рекламы, мы увеличим доход на 30-50% благодаря:');
+    proposalLines.push('   - Прямым контрактам с премиум-рекламодателями');
+    proposalLines.push('   - Более высоким ставкам за показы и клики');
+    proposalLines.push('   - Оптимизации существующих размещений');
+  } else {
+    proposalLines.push('   Вы получите стабильный пассивный доход без изменения контента сайта');
+  }
+  
+  proposalLines.push('');
+  proposalLines.push('2. БЫСТРЫЙ СТАРТ: интеграция за 1 день');
+  proposalLines.push('   - Мы сами установим рекламный код');
+  proposalLines.push('   - Настроим оптимальные форматы под ваш дизайн');
+  proposalLines.push('   - Первые выплаты уже через 2 недели');
+  proposalLines.push('');
+  proposalLines.push('3. СОХРАНЕНИЕ ПОЛЬЗОВАТЕЛЬСКОГО ОПЫТА:');
+  proposalLines.push('   - Реклама не будет раздражать посетителей');
+  proposalLines.push('   - Адаптивные форматы под мобильные устройства');
+  proposalLines.push('   - Контроль над тематикой рекламы');
+  proposalLines.push('');
+  proposalLines.push('4. ПРОЗРАЧНОСТЬ И КОНТРОЛЬ:');
+  proposalLines.push('   - Личный кабинет с детальной статистикой в реальном времени');
+  proposalLines.push('   - Еженедельные отчёты о доходах');
+  proposalLines.push('   - Выплаты два раза в месяц, без задержек');
+  proposalLines.push('');
+  
+  if (siteType.toLowerCase().includes('news') || siteType.toLowerCase().includes('media')) {
+    proposalLines.push('5. СПЕЦИАЛЬНЫЕ УСЛОВИЯ ДЛЯ НОВОСТНЫХ РЕСУРСОВ:');
+    proposalLines.push('   - Премиум-рекламодатели, готовые платить больше за новостную аудиторию');
+    proposalLines.push('   - Нативные форматы, органично вписывающиеся в контент');
+  } else if (siteType.toLowerCase().includes('commerce')) {
+    proposalLines.push('5. СПЕЦИАЛЬНЫЕ УСЛОВИЯ ДЛЯ E-COMMERCE:');
+    proposalLines.push('   - Товарные рекомендации с высокой конверсией');
+    proposalLines.push('   - Динамические баннеры на основе поведения пользователей');
+  } else if (siteType.toLowerCase().includes('blog')) {
+    proposalLines.push('5. СПЕЦИАЛЬНЫЕ УСЛОВИЯ ДЛЯ БЛОГОВ:');
+    proposalLines.push('   - Нативная реклама в стиле ваших статей');
+    proposalLines.push('   - Брендированный контент от надёжных рекламодателей');
+  }
+  
+  proposalLines.push('');
+  proposalLines.push('ФОРМАТЫ РАЗМЕЩЕНИЯ:');
+  proposalLines.push('- Баннеры (статичные и анимированные)');
+  proposalLines.push('- Нативная реклама (встраивается в контент)');
+  proposalLines.push('- Видео-реклама (для сайтов с высоким трафиком)');
+  proposalLines.push('- Rich-media форматы (интерактивные объявления)');
+  proposalLines.push('');
+  proposalLines.push('Готов обсудить детали и ответить на ваши вопросы. Могу подготовить индивидуальный расчёт дохода с учётом специфики вашего проекта.');
+  proposalLines.push('');
+  proposalLines.push('Давайте созвонимся на этой неделе? Предложите удобное время.');
+  proposalLines.push('');
+  proposalLines.push('С уважением,');
+  proposalLines.push('Менеджер по развитию партнёрств');
+  proposalLines.push('Adlook');
+  proposalLines.push('');
+  proposalLines.push('P.S. Отвечу на письмо в течение 2 часов. Также можете позвонить или написать в Telegram для более быстрой связи.');
 
   return proposalLines.join('\n');
 }
@@ -383,11 +531,13 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const proposalText = generateProposal(url, aiResult.zones);
+    const proposalText = generateProposal(url, aiResult.siteType, aiResult.trafficEstimate, aiResult.zones);
     const analysisId = uuidv4();
 
     analysisCache.set(analysisId, {
       url,
+      siteType: aiResult.siteType,
+      trafficEstimate: aiResult.trafficEstimate,
       zones: aiResult.zones,
       proposalText,
       screenshot: crawlResult.screenshot
@@ -406,6 +556,8 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         proposal_text: proposalText,
+        site_type: aiResult.siteType,
+        traffic_estimate: aiResult.trafficEstimate,
         zones: aiResult.zones,
         analysis_id: analysisId
       })
