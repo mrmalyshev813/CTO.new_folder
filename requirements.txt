@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+playwright
+beautifulsoup4
+python-docx
+weasyprint
+openai
+pydantic-settings
