@@ -1,4 +1,5 @@
-const chromium = require('chrome-aws-lambda');
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 const { OpenAI } = require('openai');
 const cheerio = require('cheerio');
 const { v4: uuidv4 } = require('uuid');
@@ -9,13 +10,45 @@ const PDFDocument = require('pdfkit');
 
 const analysisCache = new Map();
 
+function getFriendlyCrawlError(error) {
+  const message = (error && error.message) ? error.message : '';
+  if (!message) {
+    return 'We were unable to load the website. Please try again with a valid URL.';
+  }
+
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('timeout')) {
+    return 'Navigation timed out while loading the website. Please try again in a moment or choose a lighter page.';
+  }
+
+  if (normalized.includes('err_name_not_resolved') || normalized.includes('enotfound') || normalized.includes('dns')) {
+    return 'We could not resolve that domain. Please confirm the URL is correct and publicly accessible.';
+  }
+
+  if (normalized.includes('invalid url') || normalized.includes('protocol error: url') || normalized.includes('url is not valid')) {
+    return 'The URL appears to be invalid. Please include the full address starting with http:// or https://';
+  }
+
+  if (normalized.includes('err_connection_refused') || normalized.includes('err_connection_timed_out') || normalized.includes('failed to fetch')) {
+    return 'We were unable to reach the website. The server may be offline or blocking requests.';
+  }
+
+  if (normalized.includes('libnss3.so') || normalized.includes('dependencies')) {
+    return 'Chromium dependencies are missing in this environment. Please ensure all required system packages are installed.';
+  }
+
+  return 'We were unable to load the website. Please try again or use a different URL.';
+}
+
 async function crawlWebsite(url) {
   let browser = null;
   try {
-    browser = await chromium.puppeteer.launch({
+    const executablePath = await chromium.executablePath();
+    browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
+      executablePath: executablePath ?? undefined,
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
     });
@@ -45,13 +78,20 @@ async function crawlWebsite(url) {
     };
   } catch (error) {
     if (browser) {
-      await browser.close();
+      try {
+        await browser.close();
+      } catch (closeErr) {
+        console.warn('Failed to close browser after error:', closeErr.message);
+      }
     }
+
+    console.error(`crawlWebsite failed for ${url}:`, error);
+
     return {
       screenshot: null,
       html: null,
       success: false,
-      error: error.message
+      error: getFriendlyCrawlError(error)
     };
   }
 }

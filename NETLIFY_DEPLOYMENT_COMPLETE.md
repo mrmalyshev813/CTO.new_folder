@@ -19,7 +19,7 @@ The Ad Placement Analyzer has been successfully adapted for Netlify deployment. 
 **Created 3 serverless functions:**
 
 1. **analyze.js** - Main function that:
-   - Crawls websites using Puppeteer + chrome-aws-lambda
+   - Crawls websites using Puppeteer Core + @sparticuz/chromium
    - Analyzes with OpenAI GPT-4o-mini
    - Generates proposals using Adlook template
    - Creates DOCX and PDF exports
@@ -114,7 +114,7 @@ Created comprehensive documentation:
 
 ### After (Netlify Functions)
 - Backend: Netlify Functions (Node.js serverless)
-- Web Scraping: Puppeteer + chrome-aws-lambda
+- Web Scraping: Puppeteer Core + @sparticuz/chromium
 - HTML Parsing: Cheerio
 - AI: OpenAI Node.js SDK
 - DOCX: docx npm package
@@ -128,8 +128,8 @@ All required packages are in package.json:
 ```json
 {
   "dependencies": {
-    "chrome-aws-lambda": "^10.1.0",
-    "puppeteer-core": "^10.4.0",
+    "@sparticuz/chromium": "^119.0.2",
+    "puppeteer-core": "^21.5.2",
     "openai": "^4.20.1",
     "cheerio": "^1.0.0-rc.12",
     "docx": "^8.5.0",

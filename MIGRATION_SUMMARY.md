@@ -25,7 +25,7 @@ This document summarizes the migration of the Ad Placement Analyzer from a Pytho
 | Component | Before | After |
 |-----------|--------|-------|
 | Backend Framework | FastAPI (Python) | Netlify Functions (Node.js) |
-| Web Scraping | Playwright | Puppeteer + chrome-aws-lambda |
+| Web Scraping | Playwright | Puppeteer Core + @sparticuz/chromium |
 | HTML Parsing | BeautifulSoup4 | Cheerio |
 | AI/ML | OpenAI Python SDK | OpenAI Node.js SDK |
 | DOCX Generation | python-docx | docx npm package |

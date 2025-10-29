@@ -14,6 +14,12 @@
 
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["@sparticuz/chromium"]
+  included_files = ["node_modules/@sparticuz/chromium/**"]
+
+[functions.analyze]
+  timeout = 26
+  memory = 1024
 
 [[headers]]
   for = "/*"

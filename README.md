@@ -137,7 +137,7 @@ The application uses a serverless architecture optimized for Netlify:
 
 ### Technology Stack
 
-- **Web Scraping**: Puppeteer with chrome-aws-lambda (Netlify-compatible)
+- **Web Scraping**: Puppeteer Core v21.5.2 with @sparticuz/chromium v119.0.2 (Netlify-compatible)
 - **AI Analysis**: OpenAI Node.js SDK (GPT-4o-mini)
 - **HTML Parsing**: Cheerio
 - **DOCX Generation**: docx npm package
@@ -183,15 +183,26 @@ npm run dev
 # Test with URL: https://nlabteam.com
 ```
 
+### Automated Testing
+
+```bash
+# Run basic function tests
+npm run test
+
+# Run comprehensive E2E tests with real websites
+npm run test:e2e
+```
+
 ### Test Checklist
 
-- ✅ Website crawling with Puppeteer
+- ✅ Website crawling with Puppeteer Core + @sparticuz/chromium
 - ✅ AI analysis with GPT-4o-mini
-- ✅ Proposal generation (Adlook template)
+- ✅ Proposal generation (Adlook template, no asterisks)
 - ✅ DOCX export functionality
 - ✅ PDF export functionality
 - ✅ Error handling for invalid URLs
 - ✅ All functions working on Netlify
+- ✅ Tested with real websites (nlabteam.com, example.com, news.ycombinator.com)
 
 ## Troubleshooting
 
@@ -231,18 +242,25 @@ cat .env
 **Issue**: Memory errors
 
 - Netlify Functions have 1024MB memory limit
-- Puppeteer with chrome-aws-lambda is optimized for Netlify
+- Puppeteer Core with @sparticuz/chromium is optimized for Netlify
 - If issues persist, consider analyzing smaller HTML snippets
 
 ### Chrome/Puppeteer Issues
 
 **Issue**: Browser launch fails on Netlify
 
-The project uses `chrome-aws-lambda` which is specifically designed for serverless environments like Netlify. This should work out of the box.
+The project uses `@sparticuz/chromium` which is specifically designed for serverless environments like Netlify Functions, AWS Lambda, etc. This is the modern replacement for the deprecated `chrome-aws-lambda`.
 
 If you encounter issues:
-1. Check that `chrome-aws-lambda` version is compatible
-2. Verify `puppeteer-core` version matches `chrome-aws-lambda`
+1. Verify `@sparticuz/chromium` version is v119.0.2 or compatible
+2. Ensure `puppeteer-core` version matches (v21.5.2 or compatible)
+3. Check that `netlify.toml` includes the correct bundler configuration:
+   ```toml
+   [functions]
+     node_bundler = "esbuild"
+     external_node_modules = ["@sparticuz/chromium"]
+     included_files = ["node_modules/@sparticuz/chromium/**"]
+   ```
 
 ## Migration from Python FastAPI
 
@@ -251,7 +269,7 @@ This project was originally built with Python FastAPI and has been migrated to N
 Key changes:
 - Python → Node.js/JavaScript
 - FastAPI → Netlify Functions
-- Playwright → Puppeteer with chrome-aws-lambda
+- Playwright → Puppeteer Core with @sparticuz/chromium
 - WeasyPrint → PDFKit
 - python-docx → docx npm package
 
@@ -303,6 +321,8 @@ The auto-merge workflow is defined in `.github/workflows/auto-merge.yml` and inc
 - **[README.md](README.md)** - This file, setup and deployment instructions
 - **[QUICK_START.md](QUICK_START.md)** - Quick setup guide
 - **[TEST_RESULTS.md](TEST_RESULTS.md)** - Comprehensive test report
+- **[NETLIFY_PUPPETEER_FIX.md](NETLIFY_PUPPETEER_FIX.md)** - Puppeteer fix details and test results
+- **[PUPPETEER_FIX_SUMMARY.md](PUPPETEER_FIX_SUMMARY.md)** - Task completion summary
 - **[VERIFICATION_CHECKLIST.md](VERIFICATION_CHECKLIST.md)** - Complete verification checklist
 - **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical documentation
 

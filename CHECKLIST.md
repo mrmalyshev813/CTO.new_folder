@@ -38,9 +38,9 @@
 
 ## ✅ Dependencies
 
-- [x] chrome-aws-lambda (Netlify-compatible Puppeteer)
-- [x] puppeteer-core
-- [x] openai (Node.js SDK)
+- [x] @sparticuz/chromium v119.0.2 (Netlify-compatible Chromium)
+- [x] puppeteer-core v21.5.2
+- [x] openai v4.20.1 (Node.js SDK)
 - [x] cheerio (HTML parsing)
 - [x] docx (DOCX generation)
 - [x] pdfkit (PDF generation)
@@ -49,9 +49,9 @@
 
 ## ✅ Testing Preparation
 
-- [x] Test script created (test-functions.js)
+- [x] Test scripts created (`test-functions.js`, `test-real-websites.js`)
 - [x] Local development setup documented
-- [x] Test URLs identified (nlabteam.com)
+- [x] Test URLs identified (nlabteam.com, example.com, news.ycombinator.com)
 - [x] Test scenarios documented
 
 ## ✅ Legacy Code Preserved

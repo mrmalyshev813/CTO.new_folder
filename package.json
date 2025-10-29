@@ -7,7 +7,8 @@
     "dev": "netlify dev",
     "build": "echo 'No build step required'",
     "deploy": "netlify deploy --prod",
-    "test": "node test-functions.js"
+    "test": "node test-functions.js",
+    "test:e2e": "node test-real-websites.js"
   },
   "keywords": [
     "ad-placement",
@@ -18,8 +19,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "chrome-aws-lambda": "^10.1.0",
-    "puppeteer-core": "^10.4.0",
+    "@sparticuz/chromium": "^119.0.2",
+    "puppeteer-core": "^21.5.2",
     "openai": "^4.20.1",
     "cheerio": "^1.0.0-rc.12",
     "docx": "^8.5.0",
