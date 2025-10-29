@@ -60,6 +60,11 @@ functions-dist/
 # Temporary exports
 /tmp/
 
+# AdLook CLI output
+output/
+custom-output/
+test-results/
+
 # Next.js
 .next/
 out/
