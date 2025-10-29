@@ -73,8 +73,9 @@ function normalizeUrl(url) {
   }
 }
 
-async function crawlWebsite(url) {
-  console.log('🔍 Starting website crawl for:', url);
+async function crawlWebsiteWithPuppeteer(url) {
+  console.log('🔍 === PUPPETEER CRAWL METHOD ===');
+  console.log('Starting website crawl for:', url);
   
   let browser = null;
   try {
@@ -86,7 +87,11 @@ async function crawlWebsite(url) {
     url = normalizeResult.url;
     
     console.log('🚀 Launching browser...');
+    console.log('🕐 Timestamp:', new Date().toISOString());
+    
     const executablePath = await chromium.executablePath();
+    console.log('✅ Chromium executable path:', executablePath);
+    
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
@@ -99,8 +104,11 @@ async function crawlWebsite(url) {
     console.log('📄 Creating new page...');
     
     const page = await browser.newPage();
+    console.log('✅ Page created');
     
     console.log('🌐 Navigating to URL:', url);
+    console.log('⏰ Navigation timeout set to: 20000ms');
+    
     await page.goto(url, { 
       waitUntil: 'domcontentloaded', 
       timeout: 20000 
@@ -109,16 +117,16 @@ async function crawlWebsite(url) {
     console.log('✅ Page loaded successfully');
     
     // Wait a bit for dynamic content to load
-    console.log('⏳ Waiting for dynamic content...');
+    console.log('⏳ Waiting for dynamic content (2s)...');
     await new Promise(resolve => setTimeout(resolve, 2000));
-    console.log('📸 Taking screenshot...');
     
+    console.log('📸 Taking screenshot...');
     const screenshotBuffer = await page.screenshot({ 
       fullPage: true, 
       type: 'png' 
     });
     
-    console.log('✅ Screenshot captured');
+    console.log(`✅ Screenshot captured (${screenshotBuffer.length} bytes)`);
     console.log('📄 Extracting HTML content...');
     
     const htmlContent = await page.content();
@@ -127,18 +135,19 @@ async function crawlWebsite(url) {
     console.log('🔒 Closing browser...');
     
     await browser.close();
-    console.log('✅ Browser closed');
+    console.log('✅ Browser closed successfully');
 
     const $ = cheerio.load(htmlContent);
     const cleanedHtml = $.html();
 
-    console.log('✅ Website crawl completed successfully');
+    console.log('✅ Puppeteer crawl completed successfully');
 
     return {
       screenshot: screenshotBuffer,
       html: cleanedHtml,
       success: true,
-      error: null
+      error: null,
+      method: 'puppeteer'
     };
   } catch (error) {
     if (browser) {
@@ -150,33 +159,186 @@ async function crawlWebsite(url) {
       }
     }
 
-    console.error('❌ crawlWebsite failed for:', url);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('❌ Puppeteer crawl failed for:', url);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
 
     return {
       screenshot: null,
       html: null,
       success: false,
-      error: getFriendlyCrawlError(error)
+      error: getFriendlyCrawlError(error),
+      method: 'puppeteer'
     };
   }
 }
 
-async function analyzeWithAI(url, htmlContent) {
-  console.log('🤖 Starting AI analysis for:', url);
+async function verifyScreenshotUrl(url, timeout = 5000) {
+  console.log('🔍 Verifying screenshot URL accessibility...');
+  console.log('Screenshot URL:', url);
   
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(url, { 
+      signal: controller.signal,
+      method: 'HEAD'
+    });
+    
+    clearTimeout(timeoutId);
+    
+    console.log('📡 Screenshot verification status:', response.status);
+    console.log('✅ Screenshot URL is accessible:', response.ok);
+    
+    return response.ok;
+  } catch (error) {
+    console.error('❌ Screenshot verification error:', error.message);
+    return false;
+  }
+}
+
+async function crawlWebsiteWithScreenshotService(url) {
+  console.log('🔍 === SCREENSHOT SERVICE METHOD ===');
+  console.log('Using fallback screenshot service for:', url);
+  
+  try {
+    // Normalize and validate URL
+    const normalizeResult = normalizeUrl(url);
+    if (!normalizeResult.success) {
+      throw new Error(normalizeResult.error);
+    }
+    url = normalizeResult.url;
+    
+    console.log('✅ URL normalized:', url);
+    
+    // Generate screenshot URL using thum.io
+    const screenshotUrl = `https://image.thum.io/get/width/1200/crop/800/${encodeURIComponent(url)}`;
+    console.log('📸 Screenshot service URL:', screenshotUrl);
+    
+    // Verify screenshot URL is accessible
+    const isAccessible = await verifyScreenshotUrl(screenshotUrl, 10000);
+    if (!isAccessible) {
+      console.warn('⚠️ Screenshot verification failed, but continuing...');
+    }
+    
+    // Fetch the actual page HTML
+    console.log('🌐 Fetching HTML content from:', url);
+    console.log('⏰ Fetch timeout: 15000ms');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(url, { 
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    console.log('📡 Fetch response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const htmlContent = await response.text();
+    console.log(`✅ HTML content fetched (${htmlContent.length} characters)`);
+    
+    const $ = cheerio.load(htmlContent);
+    const cleanedHtml = $.html();
+    
+    console.log('✅ Screenshot service method completed successfully');
+    
+    // We don't have actual screenshot buffer, but we have the URL
+    // For AI analysis, we can use the screenshot URL directly
+    return {
+      screenshot: null,
+      screenshotUrl: screenshotUrl,
+      html: cleanedHtml,
+      success: true,
+      error: null,
+      method: 'screenshot_service'
+    };
+  } catch (error) {
+    console.error('❌ Screenshot service method failed');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    return {
+      screenshot: null,
+      screenshotUrl: null,
+      html: null,
+      success: false,
+      error: getFriendlyCrawlError(error),
+      method: 'screenshot_service'
+    };
+  }
+}
+
+async function crawlWebsite(url) {
+  console.log('🔍 === STARTING WEBSITE CRAWL ===');
+  console.log('⏰ Timestamp:', new Date().toISOString());
+  console.log('Input URL:', url);
+  
+  // Try Puppeteer first (preferred method with full screenshot)
+  console.log('\n--- Attempt 1: Puppeteer Method ---');
+  const puppeteerResult = await crawlWebsiteWithPuppeteer(url);
+  
+  if (puppeteerResult.success) {
+    console.log('✅ Puppeteer method succeeded!');
+    return puppeteerResult;
+  }
+  
+  console.log('⚠️ Puppeteer method failed, trying fallback...');
+  console.log('Puppeteer error was:', puppeteerResult.error);
+  
+  // Fallback to screenshot service
+  console.log('\n--- Attempt 2: Screenshot Service Method ---');
+  const serviceResult = await crawlWebsiteWithScreenshotService(url);
+  
+  if (serviceResult.success) {
+    console.log('✅ Screenshot service method succeeded!');
+    return serviceResult;
+  }
+  
+  console.error('❌ All crawl methods failed');
+  console.error('Puppeteer error:', puppeteerResult.error);
+  console.error('Service error:', serviceResult.error);
+  
+  // Return the most informative error
+  return {
+    screenshot: null,
+    screenshotUrl: null,
+    html: null,
+    success: false,
+    error: `Failed to crawl website. Tried multiple methods:\n1. Puppeteer: ${puppeteerResult.error}\n2. Screenshot service: ${serviceResult.error}`,
+    method: 'all_failed'
+  };
+}
+
+async function analyzeWithAI(url, htmlContent, screenshotUrl = null) {
+  console.log('🤖 === STARTING AI ANALYSIS ===');
+  console.log('⏰ Timestamp:', new Date().toISOString());
+  console.log('URL:', url);
+  console.log('HTML content length:', htmlContent ? htmlContent.length : 0);
+  console.log('Screenshot URL provided:', !!screenshotUrl);
+  
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OpenAI API key is not configured');
+      throw new Error('OpenAI API key is not configured in environment');
+    }
+
+    console.log('✅ OpenAI API key found');
+    
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     });
-
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
-    }
 
     console.log('✅ OpenAI client initialized');
 
@@ -184,7 +346,7 @@ async function analyzeWithAI(url, htmlContent) {
       ? htmlContent.substring(0, 5000) 
       : htmlContent;
 
-    console.log(`📄 HTML snippet length: ${htmlSnippet.length} characters`);
+    console.log(`📄 HTML snippet prepared: ${htmlSnippet.length} characters`);
 
     const prompt = `You are an expert in web advertising and ad placement optimization.
 
@@ -461,8 +623,13 @@ async function createPDF(proposalText, analysisId) {
 }
 
 exports.handler = async (event, _context) => {
-  console.log('🚀 Analyze function called');
+  console.log('\n\n');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('🚀 === ANALYZE FUNCTION CALLED ===');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('⏰ Timestamp:', new Date().toISOString());
   console.log('HTTP Method:', event.httpMethod);
+  console.log('Request headers:', JSON.stringify(event.headers, null, 2));
   
   if (event.httpMethod !== 'POST') {
     console.log('❌ Invalid HTTP method');
@@ -478,6 +645,8 @@ exports.handler = async (event, _context) => {
 
   try {
     console.log('📥 Parsing request body...');
+    console.log('Raw body:', event.body);
+    
     const { url } = JSON.parse(event.body);
 
     if (!url) {
@@ -493,6 +662,8 @@ exports.handler = async (event, _context) => {
     }
 
     console.log('✅ Request validated, URL:', url);
+    console.log('URL type:', typeof url);
+    console.log('URL length:', url.length);
     console.log('==========================================');
     console.log('STEP 1: Crawling website');
     console.log('==========================================');
@@ -514,11 +685,12 @@ exports.handler = async (event, _context) => {
     }
 
     console.log('✅ Crawl completed successfully');
+    console.log('Crawl method used:', crawlResult.method);
     console.log('==========================================');
     console.log('STEP 2: Analyzing with AI');
     console.log('==========================================');
 
-    const aiResult = await analyzeWithAI(url, crawlResult.html);
+    const aiResult = await analyzeWithAI(url, crawlResult.html, crawlResult.screenshotUrl);
 
     if (!aiResult.success) {
       console.log('❌ AI analysis failed:', aiResult.error);

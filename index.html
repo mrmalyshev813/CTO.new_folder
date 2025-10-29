@@ -352,7 +352,24 @@
                     errorMessage = 'Превышено время ожидания. Попробуйте другой сайт или повторите попытку позже.';
                 }
                 
-                results.innerHTML = `<p style="color: #ff4444;">❌ Ошибка: ${errorMessage}</p>`;
+                // Display detailed error for debugging
+                const errorDetails = JSON.stringify({
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                }, null, 2);
+                
+                results.innerHTML = `
+                    <div style="color: #ff4444; padding: 20px; background: #1a1a1a; border-radius: 8px; border: 1px solid #ff4444;">
+                        <h3 style="margin-top: 0;">❌ Ошибка анализа</h3>
+                        <p><strong>Сообщение:</strong> ${errorMessage}</p>
+                        <details style="margin-top: 15px;">
+                            <summary style="cursor: pointer; color: #0066ff; user-select: none;">Показать детали (для разработчика)</summary>
+                            <pre style="margin-top: 10px; padding: 10px; background: #0a0a0a; border-radius: 4px; overflow-x: auto; font-size: 11px; white-space: pre-wrap;">${errorDetails}</pre>
+                        </details>
+                    </div>
+                `;
+                
                 console.error('❌ Search error:', error);
                 console.error('Error details:', {
                     name: error.name,
@@ -369,6 +386,127 @@
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleSearch();
         });
+        
+        // Automated testing function
+        async function runAutomatedTests() {
+            const testUrls = [
+                'https://example.com',
+                'https://google.com',
+                'https://habr.com',
+                'https://nlabteam.com'
+            ];
+            
+            console.log('\n\n🧪 ═══════════════════════════════════════════════');
+            console.log('🧪 === STARTING AUTOMATED TESTS ===');
+            console.log('🧪 ═══════════════════════════════════════════════\n');
+            
+            let passCount = 0;
+            let failCount = 0;
+            const results = [];
+            
+            for (const url of testUrls) {
+                console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                console.log(`🧪 Testing: ${url}`);
+                console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                
+                try {
+                    const startTime = Date.now();
+                    
+                    // Make API call
+                    const response = await fetch('/.netlify/functions/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url })
+                    });
+                    
+                    const duration = Date.now() - startTime;
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    console.log(`✅ PASS - ${url}`);
+                    console.log(`⏱️  Duration: ${duration}ms`);
+                    console.log(`📊 Zones found: ${data.zones ? data.zones.length : 0}`);
+                    console.log(`📝 Proposal length: ${data.proposal_text ? data.proposal_text.length : 0} chars`);
+                    
+                    results.push({
+                        url,
+                        status: 'PASS',
+                        duration,
+                        zones: data.zones ? data.zones.length : 0
+                    });
+                    
+                    passCount++;
+                    
+                } catch (error) {
+                    console.error(`❌ FAIL - ${url}`);
+                    console.error(`Error: ${error.message}`);
+                    
+                    results.push({
+                        url,
+                        status: 'FAIL',
+                        error: error.message
+                    });
+                    
+                    failCount++;
+                }
+            }
+            
+            console.log('\n\n🧪 ═══════════════════════════════════════════════');
+            console.log('🧪 === TESTS COMPLETE ===');
+            console.log('🧪 ═══════════════════════════════════════════════');
+            console.log(`\n📊 Test Results:`);
+            console.log(`✅ Passed: ${passCount}/${testUrls.length}`);
+            console.log(`❌ Failed: ${failCount}/${testUrls.length}`);
+            console.log(`📈 Success Rate: ${Math.round((passCount / testUrls.length) * 100)}%`);
+            
+            console.log('\n📋 Detailed Results:');
+            results.forEach((result, idx) => {
+                console.log(`\n${idx + 1}. ${result.url}`);
+                console.log(`   Status: ${result.status}`);
+                if (result.status === 'PASS') {
+                    console.log(`   Duration: ${result.duration}ms`);
+                    console.log(`   Zones: ${result.zones}`);
+                } else {
+                    console.log(`   Error: ${result.error}`);
+                }
+            });
+            
+            if (failCount === 0) {
+                console.log('\n\n🎉 ═══════════════════════════════════════════════');
+                console.log('🎉 ALL TESTS PASSED! Safe to deploy.');
+                console.log('🎉 ═══════════════════════════════════════════════\n\n');
+            } else {
+                console.error('\n\n⚠️  ═══════════════════════════════════════════════');
+                console.error('⚠️  SOME TESTS FAILED! Do NOT deploy.');
+                console.error('⚠️  ═══════════════════════════════════════════════\n\n');
+            }
+            
+            return {
+                passed: passCount,
+                failed: failCount,
+                total: testUrls.length,
+                results
+            };
+        }
+        
+        // Expose test function to window for easy access
+        window.runAutomatedTests = runAutomatedTests;
     </script>
+    
+    <!-- Test button for developers -->
+    <button 
+        onclick="runAutomatedTests()" 
+        style="position: fixed; bottom: 20px; left: 20px; padding: 12px 24px; background: #ff9500; color: white; border: none; border-radius: 8px; cursor: pointer; z-index: 1000; font-weight: 600; box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3); transition: all 0.3s;"
+        onmouseover="this.style.background='#ff8000'; this.style.boxShadow='0 6px 16px rgba(255, 149, 0, 0.4)'"
+        onmouseout="this.style.background='#ff9500'; this.style.boxShadow='0 4px 12px rgba(255, 149, 0, 0.3)'"
+    >
+        🧪 Run Automated Tests
+    </button>
 </body>
 </html>
