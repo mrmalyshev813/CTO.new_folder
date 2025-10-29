@@ -1,29 +1,7 @@
 [build]
-  functions = "netlify/functions"
   publish = "."
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["@sparticuz/chromium"]
-  included_files = ["node_modules/@sparticuz/chromium/**"]
-
-[functions.analyze]
-  timeout = 26
-  memory = 1024
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"

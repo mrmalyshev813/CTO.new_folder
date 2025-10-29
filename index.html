@@ -1,261 +1,177 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ad Placement Analyzer</title>
+    <title>Анализатор рекламных мест - Adlook</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 900px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
-        }
-        input[type="url"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 12px 30px;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 20px;
-            margin-right: 10px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        button.secondary {
-            background-color: #28a745;
-        }
-        button.secondary:hover {
-            background-color: #218838;
-        }
-        button.tertiary {
-            background-color: #dc3545;
-        }
-        button.tertiary:hover {
-            background-color: #c82333;
-        }
-        .spinner {
-            display: none;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #007bff;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .result {
-            margin-top: 30px;
-            display: none;
-        }
-        .error-message {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 4px;
-            margin-top: 20px;
-        }
-        .zones-section {
-            background-color: #e7f3ff;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-        }
-        .zones-section h3 {
-            margin-top: 0;
-            color: #333;
-        }
-        .zone-item {
-            padding: 8px;
-            margin: 5px 0;
-            background-color: white;
-            border-left: 4px solid #007bff;
-            border-radius: 2px;
-        }
-        .zone-item.high {
-            border-left-color: #dc3545;
-        }
-        .zone-item.medium {
-            border-left-color: #ffc107;
-        }
-        .zone-item.low {
-            border-left-color: #28a745;
-        }
-        .proposal-section {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 4px;
-            border: 1px solid #dee2e6;
-            white-space: pre-wrap;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        .download-buttons {
-            margin-top: 20px;
-        }
+        body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
+        input { width: 100%; padding: 10px; font-size: 16px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; margin-top: 10px; }
+        #result { margin-top: 30px; white-space: pre-wrap; background: #f5f5f5; padding: 20px; display: none; }
+        #loading { display: none; color: #666; margin-top: 10px; }
+        .zone { background: white; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745; }
+        .api-key-section { background: #fff3cd; padding: 15px; margin-bottom: 20px; border-radius: 5px; border-left: 4px solid #ffc107; }
+        #apiKeyInput { font-family: monospace; font-size: 14px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Ad Placement Analyzer</h1>
-        <p class="subtitle">Analyze websites for optimal ad placement opportunities using AI</p>
-        
-        <form id="analyzeForm">
-            <label for="url">Website URL:</label>
-            <input 
-                type="url" 
-                id="url" 
-                name="url" 
-                placeholder="https://example.com" 
-                required
-            >
-            <button type="submit" id="submitBtn">Analyze</button>
-        </form>
-        
-        <div class="spinner" id="spinner"></div>
-        
-        <div id="errorMessage" class="error-message" style="display: none;"></div>
-        
-        <div id="result" class="result">
-            <div class="zones-section" id="zonesSection">
-                <h3>Found Ad Zones</h3>
-                <div id="zonesList"></div>
-            </div>
-            
-            <h3>Commercial Proposal</h3>
-            <div class="proposal-section" id="proposalText"></div>
-            
-            <div class="download-buttons">
-                <button id="downloadDocx" class="secondary">Download DOCX</button>
-                <button id="downloadPdf" class="tertiary">Download PDF</button>
-            </div>
-        </div>
+    <h1>Анализатор рекламных мест</h1>
+    <p>от компании Adlook</p>
+    
+    <div class="api-key-section">
+        <label for="apiKeyInput"><strong>OpenAI API Key:</strong></label>
+        <input type="password" id="apiKeyInput" placeholder="Введите ваш OpenAI API ключ" />
+        <small style="color: #666; display: block; margin-top: 5px;">Ключ сохраняется локально в браузере</small>
     </div>
+    
+    <input type="url" id="urlInput" placeholder="Введите URL сайта (например: https://nlabteam.com)" />
+    <button onclick="analyze()">Анализировать</button>
+    
+    <div id="loading">Анализируем сайт...</div>
+    <div id="result"></div>
 
     <script>
-        const form = document.getElementById('analyzeForm');
-        const resultDiv = document.getElementById('result');
-        const submitBtn = document.getElementById('submitBtn');
-        const spinner = document.getElementById('spinner');
-        const errorMessage = document.getElementById('errorMessage');
-        const zonesSection = document.getElementById('zonesSection');
-        const zonesList = document.getElementById('zonesList');
-        const proposalText = document.getElementById('proposalText');
-        const downloadDocx = document.getElementById('downloadDocx');
-        const downloadPdf = document.getElementById('downloadPdf');
+        function getApiKey() {
+            let apiKey = document.getElementById('apiKeyInput').value;
+            if (!apiKey) {
+                apiKey = localStorage.getItem('openai_api_key');
+                if (apiKey) {
+                    document.getElementById('apiKeyInput').value = apiKey;
+                }
+            } else {
+                localStorage.setItem('openai_api_key', apiKey);
+            }
+            return apiKey;
+        }
         
-        let currentAnalysisId = null;
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        async function analyze() {
+            const url = document.getElementById('urlInput').value;
+            if (!url) return alert('Введите URL');
             
-            const url = document.getElementById('url').value;
+            const apiKey = getApiKey();
+            if (!apiKey) return alert('Введите OpenAI API ключ');
             
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Analyzing...';
-            spinner.style.display = 'block';
-            resultDiv.style.display = 'none';
-            errorMessage.style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
             
             try {
-                const response = await fetch('/.netlify/functions/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ url: url })
-                });
+                // Fetch website
+                const htmlResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                const data = await htmlResponse.json();
                 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || errorData.detail || 'Analysis failed');
-                }
+                // Analyze with OpenAI
+                const analysis = await analyzeWithAI(url, data.contents, apiKey);
                 
-                const data = await response.json();
+                // Generate proposal
+                const proposal = generateProposal(url, analysis.zones);
                 
-                currentAnalysisId = data.analysis_id;
-                
-                zonesList.innerHTML = '';
-                if (data.zones && data.zones.length > 0) {
-                    data.zones.forEach(zone => {
-                        const zoneDiv = document.createElement('div');
-                        zoneDiv.className = `zone-item ${zone.priority}`;
-                        zoneDiv.textContent = `${zone.zone} - ${zone.priority} priority`;
-                        zonesList.appendChild(zoneDiv);
-                    });
-                } else {
-                    zonesList.innerHTML = '<p>No zones identified</p>';
-                }
-                
-                proposalText.textContent = data.proposal_text;
-                
-                resultDiv.style.display = 'block';
+                // Display results
+                displayResults(proposal, analysis.zones);
                 
             } catch (error) {
-                errorMessage.textContent = `Error: ${error.message}`;
-                errorMessage.style.display = 'block';
+                alert('Ошибка: ' + error.message);
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Analyze';
-                spinner.style.display = 'none';
+                document.getElementById('loading').style.display = 'none';
             }
-        });
+        }
         
-        downloadDocx.addEventListener('click', () => {
-            if (currentAnalysisId) {
-                window.location.href = `/.netlify/functions/export-docx/${currentAnalysisId}`;
-            }
-        });
+        async function analyzeWithAI(url, html, apiKey) {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [{
+                        role: 'user',
+                        content: `Проанализируй сайт ${url} и определи потенциальные рекламные зоны.
+                        
+Определи наличие и приоритет (high/medium/low) для этих зон:
+1. Header (шапка сайта)
+2. Sidebar (боковая панель)
+3. Content (основной контент)
+4. Footer (подвал)
+5. Popup (всплывающие окна)
+
+Верни JSON:
+{
+  "zones": [
+    {"name": "Header", "priority": "high", "description": "описание"},
+    ...
+  ]
+}`
+                    }],
+                    response_format: { type: 'json_object' }
+                })
+            });
+            
+            const result = await response.json();
+            return JSON.parse(result.choices[0].message.content);
+        }
         
-        downloadPdf.addEventListener('click', () => {
-            if (currentAnalysisId) {
-                window.location.href = `/.netlify/functions/export-pdf/${currentAnalysisId}`;
+        function generateProposal(url, zones) {
+            const priorityZones = zones.filter(z => z.priority === 'high' || z.priority === 'medium');
+            const zonesList = priorityZones.map((z, i) => `${i+1}. ${z.name} - ${z.priority === 'high' ? 'высокий приоритет' : 'средний приоритет'}\n   ${z.description}`).join('\n\n');
+            
+            return `Тема: Предложение по рекламе на сайте ${url}
+
+Здравствуйте!
+
+Прежде всего хочу поздравить вас с успешным развитием вашего ресурса. ${url} привлекает широкую аудиторию. Мы в Adlook уверены, что грамотное размещение рекламы позволит значительно увеличить доход.
+
+Немного о нас: Adlook - это российская SSP-платформа (Supply-Side Platform), основанная в 2018 году в Санкт-Петербурге. Мы помогаем владельцам сайтов монетизировать свои ресурсы с помощью баннерной и видеорекламы.
+
+Мы проанализировали ваш сайт и выделили несколько эффективных зон для размещения рекламы:
+
+${zonesList}
+
+Потенциальный доход: от 50,000 до 150,000 рублей в месяц.
+
+Что мы предлагаем:
+- Сроки размещения: от одного месяца
+- Форматы: баннеры, контекстная реклама, всплывающие окна
+- Программная настройка рекламы под ваш сайт
+- Полная аналитика и отчеты по эффективности
+
+Мы уверены, что сотрудничество с Adlook станет взаимовыгодным. Давайте обсудим детали!
+
+С уважением,
+Менеджер по работе с партнёрами, Adlook`;
+        }
+        
+        function displayResults(proposal, zones) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <h3>Найденные рекламные зоны:</h3>
+                ${zones.map(z => `<div class="zone"><strong>${z.name}</strong> (${z.priority})<br>${z.description}</div>`).join('')}
+                
+                <h3>Коммерческое предложение:</h3>
+                <div style="background: white; padding: 20px;">${proposal}</div>
+                
+                <button onclick="copyToClipboard()">Копировать письмо</button>
+            `;
+            resultDiv.style.display = 'block';
+            window.currentProposal = proposal;
+        }
+        
+        function copyToClipboard() {
+            navigator.clipboard.writeText(window.currentProposal);
+            alert('Текст скопирован!');
+        }
+        
+        // Load saved API key on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedApiKey = localStorage.getItem('openai_api_key');
+            if (savedApiKey) {
+                document.getElementById('apiKeyInput').value = savedApiKey;
             }
         });
     </script>
+    
+    <footer style="margin-top: 50px; text-align: center; color: #666;">
+        AI-powered анализ рекламных мест by NLABTEAM
+    </footer>
 </body>
 </html>
