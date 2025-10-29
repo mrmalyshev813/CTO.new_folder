@@ -102,6 +102,49 @@ The backend is built with FastAPI and includes:
 
 (More endpoints will be added as development progresses)
 
+## Auto-merge for cto.new PRs
+
+This repository is configured with automatic merging for Pull Requests created by the cto.new bot. This ensures that approved changes from the bot are merged automatically without manual intervention.
+
+### How it works
+
+1. **Automatic Trigger**: When a PR is opened, reopened, or synchronized by the cto.new bot, the auto-merge workflow is triggered
+2. **Safety Checks**: The workflow verifies:
+   - PR is from verified cto.new bot account (`cto-ai-app[bot]` or `cto-new[bot]`)
+   - PR does not have the `no-auto-merge` label
+   - No merge conflicts exist
+   - All required status checks pass (if any are configured)
+3. **Auto-approval**: The workflow automatically approves the PR
+4. **Merge**: The PR is merged using the standard merge strategy (not squash or rebase)
+5. **Notification**: A comment is added to the PR confirming the auto-merge
+
+### Manual Override
+
+To prevent a cto.new PR from being automatically merged:
+
+1. Add the `no-auto-merge` label to the PR
+2. The workflow will detect this label and skip the auto-merge process
+3. You can then review and merge manually
+
+### Security
+
+- Only PRs from verified cto.new bot accounts are eligible for auto-merge
+- All configured branch protection rules and status checks must pass
+- Merge conflicts prevent auto-merge
+- The workflow logs all actions for audit purposes
+
+### Workflow File
+
+The auto-merge workflow is defined in `.github/workflows/auto-merge.yml` and includes:
+
+- Author verification
+- Label-based manual override
+- Merge conflict detection
+- Status check validation
+- Automatic PR approval
+- Standard merge execution
+- Post-merge notifications
+
 ## License
 
 TBD
