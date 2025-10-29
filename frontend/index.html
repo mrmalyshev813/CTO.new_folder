@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 900px;
             margin: 50px auto;
             padding: 20px;
             background-color: #f5f5f5;
@@ -49,6 +49,7 @@
             font-size: 16px;
             cursor: pointer;
             margin-top: 20px;
+            margin-right: 10px;
         }
         button:hover {
             background-color: #0056b3;
@@ -57,21 +58,84 @@
             background-color: #ccc;
             cursor: not-allowed;
         }
+        button.secondary {
+            background-color: #28a745;
+        }
+        button.secondary:hover {
+            background-color: #218838;
+        }
+        button.tertiary {
+            background-color: #dc3545;
+        }
+        button.tertiary:hover {
+            background-color: #c82333;
+        }
+        .spinner {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
         .result {
             margin-top: 30px;
-            padding: 20px;
-            border-radius: 4px;
             display: none;
         }
-        .result.success {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        .result.error {
+        .error-message {
             background-color: #f8d7da;
             border: 1px solid #f5c6cb;
             color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .zones-section {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .zones-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .zone-item {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: white;
+            border-left: 4px solid #007bff;
+            border-radius: 2px;
+        }
+        .zone-item.high {
+            border-left-color: #dc3545;
+        }
+        .zone-item.medium {
+            border-left-color: #ffc107;
+        }
+        .zone-item.low {
+            border-left-color: #28a745;
+        }
+        .proposal-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .download-buttons {
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -92,36 +156,104 @@
             <button type="submit" id="submitBtn">Analyze</button>
         </form>
         
-        <div id="result" class="result"></div>
+        <div class="spinner" id="spinner"></div>
+        
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+        
+        <div id="result" class="result">
+            <div class="zones-section" id="zonesSection">
+                <h3>Found Ad Zones</h3>
+                <div id="zonesList"></div>
+            </div>
+            
+            <h3>Commercial Proposal</h3>
+            <div class="proposal-section" id="proposalText"></div>
+            
+            <div class="download-buttons">
+                <button id="downloadDocx" class="secondary">Download DOCX</button>
+                <button id="downloadPdf" class="tertiary">Download PDF</button>
+            </div>
+        </div>
     </div>
 
     <script>
         const form = document.getElementById('analyzeForm');
         const resultDiv = document.getElementById('result');
         const submitBtn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('spinner');
+        const errorMessage = document.getElementById('errorMessage');
+        const zonesSection = document.getElementById('zonesSection');
+        const zonesList = document.getElementById('zonesList');
+        const proposalText = document.getElementById('proposalText');
+        const downloadDocx = document.getElementById('downloadDocx');
+        const downloadPdf = document.getElementById('downloadPdf');
+        
+        let currentAnalysisId = null;
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const url = document.getElementById('url').value;
+            
             submitBtn.disabled = true;
             submitBtn.textContent = 'Analyzing...';
+            spinner.style.display = 'block';
             resultDiv.style.display = 'none';
+            errorMessage.style.display = 'none';
             
             try {
-                const response = await fetch('http://localhost:8000/health');
+                const response = await fetch('http://localhost:8000/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Analysis failed');
+                }
+                
                 const data = await response.json();
                 
-                resultDiv.className = 'result success';
-                resultDiv.textContent = 'Backend is healthy! Analysis functionality coming soon...';
+                currentAnalysisId = data.analysis_id;
+                
+                zonesList.innerHTML = '';
+                if (data.zones && data.zones.length > 0) {
+                    data.zones.forEach(zone => {
+                        const zoneDiv = document.createElement('div');
+                        zoneDiv.className = `zone-item ${zone.priority}`;
+                        zoneDiv.textContent = `${zone.zone} - ${zone.priority} priority`;
+                        zonesList.appendChild(zoneDiv);
+                    });
+                } else {
+                    zonesList.innerHTML = '<p>No zones identified</p>';
+                }
+                
+                proposalText.textContent = data.proposal_text;
+                
                 resultDiv.style.display = 'block';
+                
             } catch (error) {
-                resultDiv.className = 'result error';
-                resultDiv.textContent = 'Error: Could not connect to backend. Please ensure the server is running.';
-                resultDiv.style.display = 'block';
+                errorMessage.textContent = `Error: ${error.message}`;
+                errorMessage.style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Analyze';
+                spinner.style.display = 'none';
+            }
+        });
+        
+        downloadDocx.addEventListener('click', () => {
+            if (currentAnalysisId) {
+                window.location.href = `http://localhost:8000/api/export/docx/${currentAnalysisId}`;
+            }
+        });
+        
+        downloadPdf.addEventListener('click', () => {
+            if (currentAnalysisId) {
+                window.location.href = `http://localhost:8000/api/export/pdf/${currentAnalysisId}`;
             }
         });
     </script>
