@@ -1,33 +1,36 @@
 {
-  "name": "ad-placement-analyzer",
-  "version": "1.0.0",
-  "description": "A web service that analyzes websites for ad placement opportunities using GPT-4o-mini",
-  "main": "index.js",
+  "name": "spline-search-interface",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "dev": "netlify dev",
-    "build": "echo 'No build step required'",
-    "deploy": "netlify deploy --prod",
-    "test": "node test-functions.js",
-    "test:e2e": "node test-real-websites.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
-  "keywords": [
-    "ad-placement",
-    "web-analysis",
-    "openai",
-    "netlify"
-  ],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
-    "@sparticuz/chromium": "^119.0.2",
-    "puppeteer-core": "^21.5.2",
+    "next": "^15.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@splinetool/runtime": "^1.9.26",
+    "@splinetool/react-spline": "^4.0.0",
+    "framer-motion": "^11.11.11",
     "openai": "^4.20.1",
-    "cheerio": "^1.0.0-rc.12",
-    "docx": "^8.5.0",
-    "pdfkit": "^0.13.0",
-    "uuid": "^9.0.1"
+    "lucide-react": "^0.454.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.4",
+    "class-variance-authority": "^0.7.1"
   },
   "devDependencies": {
-    "netlify-cli": "^17.10.1"
+    "typescript": "^5.6.3",
+    "@types/node": "^22.8.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "tailwindcss-animate": "^1.0.7",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.0.0"
   }
 }
