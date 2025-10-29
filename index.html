@@ -241,20 +241,40 @@
         
         async function handleSearch() {
             const query = searchInput.value.trim();
-            if (!query) return;
+            if (!query) {
+                console.log('❌ Empty query');
+                return;
+            }
             
-            // Basic URL validation
+            console.log('🔍 Starting search for:', query);
+            
+            // Normalize URL
             let url = query;
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 url = 'https://' + url;
+                console.log('✅ Added https:// prefix');
+            }
+            
+            console.log('✅ Normalized URL:', url);
+            
+            // Validate URL format
+            try {
+                new URL(url);
+                console.log('✅ URL format is valid');
+            } catch (e) {
+                console.error('❌ Invalid URL format:', e.message);
+                results.innerHTML = `<p style="color: #ff4444;">Ошибка: Неверный формат URL. Пожалуйста, введите правильный адрес сайта.</p>`;
+                results.classList.add('visible');
+                return;
             }
             
             searchButton.disabled = true;
             searchButton.textContent = 'Анализирую...';
-            results.innerHTML = '<p class="loading">Загружаю сайт, делаю скриншоты и анализирую...</p>';
+            results.innerHTML = '<p class="loading">🔍 Загружаю сайт, делаю скриншоты и анализирую...</p>';
             results.classList.add('visible');
             
             try {
+                console.log('📡 Sending request to analyze function...');
                 const response = await fetch('/.netlify/functions/analyze', {
                     method: 'POST',
                     headers: {
@@ -263,15 +283,19 @@
                     body: JSON.stringify({ url })
                 });
                 
+                console.log('📡 Response status:', response.status);
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    console.error('❌ Server error:', errorData);
                     throw new Error(errorData.error || 'Ошибка анализа');
                 }
                 
                 const data = await response.json();
+                console.log('✅ Response data received:', data);
                 
                 // Display zones
-                let zonesHtml = '<h3 style="margin-top: 0; color: #0066ff;">Найденные рекламные зоны:</h3>';
+                let zonesHtml = '<h3 style="margin-top: 0; color: #0066ff;">✅ Найденные рекламные зоны:</h3>';
                 if (data.zones && data.zones.length > 0) {
                     zonesHtml += '<ul style="margin: 10px 0; padding-left: 20px;">';
                     data.zones.forEach(zone => {
@@ -286,14 +310,20 @@
                 
                 // Display proposal
                 const proposalHtml = `
-                    <h3 style="margin-top: 20px; color: #0066ff;">Рекламное предложение:</h3>
+                    <h3 style="margin-top: 20px; color: #0066ff;">📧 Рекламное предложение:</h3>
                     <div style="white-space: pre-wrap; line-height: 1.6; margin-top: 10px; padding: 15px; background: #0a0a0a; border-radius: 6px;">${data.proposal_text}</div>
                 `;
                 
                 results.innerHTML = zonesHtml + proposalHtml;
+                console.log('✅ Results displayed successfully');
             } catch (error) {
-                results.innerHTML = `<p style="color: #ff4444;">Ошибка: ${error.message}</p>`;
-                console.error('Search error:', error);
+                results.innerHTML = `<p style="color: #ff4444;">❌ Ошибка: ${error.message}</p>`;
+                console.error('❌ Search error:', error);
+                console.error('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
             } finally {
                 searchButton.disabled = false;
                 searchButton.textContent = 'Найти';
