@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "echo \"Open index.html directly in your browser\"",
+    "build": "echo \"Static site - no build step required\"",
+    "start": "echo \"Static site - use any HTTP server to serve index.html\"",
+    "lint": "echo \"No linting required for static HTML\""
   },
   "dependencies": {
     "next": "^15.0.0",
