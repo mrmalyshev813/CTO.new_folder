@@ -543,6 +543,28 @@
         const searchButton = document.getElementById('searchButton');
         const results = document.getElementById('results');
         
+        function getFriendlyErrorMessage(message) {
+            if (!message) {
+                return 'Произошла неизвестная ошибка. Попробуйте снова.';
+            }
+            
+            const lower = message.toLowerCase();
+            
+            if (lower.includes('request timeout') || lower.includes('website check timeout')) {
+                return '⏱️ Сайт не ответил вовремя. Проверьте, доступен ли URL и попробуйте снова.';
+            }
+            
+            if (lower.includes('website unreachable') || lower.includes('dns lookup failed') || lower.includes('domain name')) {
+                return '🌐 Сайт недоступен. Убедитесь, что адрес указан верно и сайт работает.';
+            }
+            
+            if (lower.includes('failed to get screenshot')) {
+                return 'Не удалось получить скриншот сайта. Попробуйте ещё раз или проверьте доступность сайта.';
+            }
+            
+            return message;
+        }
+        
         // Analyze website using backend function
         async function analyzeWebsite(url) {
             try {
@@ -727,11 +749,17 @@
                 results.appendChild(timeInfo);
                 
             } catch (error) {
-                const isApiKeyError = error.message.includes('API ключ') || error.message.includes('API key');
+                const message = (error && error.message) ? error.message : 'Произошла неизвестная ошибка.';
+                const isApiKeyError = message.includes('API ключ') || message.includes('API key');
+                const friendlyMessage = getFriendlyErrorMessage(message);
+                const showTechnicalDetails = friendlyMessage !== message;
+                const primaryParagraphMargin = isApiKeyError || showTechnicalDetails ? '10px' : '0';
+                
                 results.innerHTML = `
                     <div style="color: #ff4444; padding: 20px; background: #1a1a1a; border-radius: 8px; border: 1px solid #ff4444;">
                         <h3 style="margin-top: 0;">❌ Ошибка</h3>
-                        <p style="margin-bottom: ${isApiKeyError ? '15px' : '0'};">${error.message}</p>
+                        <p style="margin-bottom: ${primaryParagraphMargin};">${friendlyMessage}</p>
+                        ${showTechnicalDetails ? `<p style="margin: 0 0 ${isApiKeyError ? '10px' : '0'} 0; color: #888; font-size: 13px;">${message}</p>` : ''}
                         ${isApiKeyError ? `
                             <button onclick="document.getElementById('apiKeyButton').click()" style="padding: 10px 20px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px;">
                                 🔑 Настроить API ключ
