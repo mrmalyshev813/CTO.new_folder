@@ -26,7 +26,59 @@ exports.handler = async (event) => {
         };
     }
 
-    const { url } = JSON.parse(event.body);
+    let body;
+    try {
+        body = event.body ? JSON.parse(event.body) : {};
+    } catch (parseError) {
+        console.error('❌ Failed to parse request body:', parseError.message);
+        return {
+            statusCode: 400,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+                success: false,
+                error: 'Invalid request payload. Please send JSON with a "url" field.'
+            })
+        };
+    }
+
+    const rawUrl = body?.url;
+
+    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) {
+        console.error('❌ URL is missing in the request');
+        return {
+            statusCode: 400,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+                success: false,
+                error: 'Website URL is required. Provide it in the request body as {"url": "https://example.com"}.'
+            })
+        };
+    }
+
+    const normalizedUrl = normalizeUrl(rawUrl);
+
+    if (!normalizedUrl) {
+        console.error('❌ Invalid URL provided:', rawUrl);
+        return {
+            statusCode: 400,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+                success: false,
+                error: 'The provided URL is invalid. Please use a full website address like "https://example.com".'
+            })
+        };
+    }
+
+    const url = normalizedUrl;
     
     console.log('\n🔍 === ANALYSIS START ===');
     console.log('URL:', url);
@@ -51,6 +103,26 @@ exports.handler = async (event) => {
         }
         
         console.log('✅ API key found');
+        
+        console.log('\n🌐 STEP 0: Checking website availability...');
+        const availability = await ensureWebsiteAccessible(url);
+        if (!availability.ok) {
+            console.error('❌ Website availability check failed:', availability.reason);
+            return {
+                statusCode: availability.statusCode || 504,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type, X-OpenAI-API-Key',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                },
+                body: JSON.stringify({
+                    success: false,
+                    error: availability.message
+                })
+            };
+        }
+        console.log('✅ Website availability confirmed');
         
         const openai = new OpenAI({
             apiKey: apiKey
@@ -204,6 +276,177 @@ Return JSON:
         };
     }
 };
+
+function normalizeUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') {
+        return null;
+    }
+
+    let candidate = rawUrl.trim();
+    if (!candidate) {
+        return null;
+    }
+
+    if (!/^https?:\/\//i.test(candidate)) {
+        candidate = `https://${candidate}`;
+    }
+
+    try {
+        const normalized = new URL(candidate);
+        if (!normalized.hostname) {
+            return null;
+        }
+        return normalized.toString();
+    } catch (error) {
+        return null;
+    }
+}
+
+async function ensureWebsiteAccessible(url) {
+    const CHECK_TIMEOUT_MS = 8000;
+    const HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (compatible; AdlookBot/1.0)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    };
+
+    const attemptRequest = async (method) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: HEADERS,
+                redirect: 'follow',
+                signal: controller.signal
+            });
+
+            if (method === 'GET' && response.body && typeof response.body.cancel === 'function') {
+                try {
+                    await response.body.cancel();
+                } catch (cancelError) {
+                    // Ignore stream cancel errors
+                }
+            }
+
+            return { response };
+        } catch (error) {
+            return { error };
+        } finally {
+            clearTimeout(timeout);
+        }
+    };
+
+    const headResult = await attemptRequest('HEAD');
+
+    if (headResult.response) {
+        console.log(`🌐 Website HEAD status: ${headResult.response.status}`);
+        return { ok: true };
+    }
+
+    if (headResult.error && headResult.error.name !== 'AbortError') {
+        console.log('ℹ️ HEAD request failed, trying GET fallback...');
+        const getResult = await attemptRequest('GET');
+
+        if (getResult.response) {
+            console.log(`🌐 Website GET fallback status: ${getResult.response.status}`);
+            return { ok: true };
+        }
+
+        if (getResult.error) {
+            const failure = createReachabilityFailure(getResult.error, url);
+            console.error('❌ Website availability GET fallback error:', getResult.error);
+            return failure;
+        }
+    }
+
+    if (headResult.error) {
+        const failure = createReachabilityFailure(headResult.error, url);
+        console.error('❌ Website availability HEAD error:', headResult.error);
+        return failure;
+    }
+
+    return { ok: true };
+}
+
+function createReachabilityFailure(error, url) {
+    if (!error) {
+        return {
+            ok: false,
+            statusCode: 504,
+            reason: 'unknown_error',
+            message: `Website unreachable: ${url} could not be reached. Please ensure it is accessible and try again.`
+        };
+    }
+
+    if (error.name === 'AbortError') {
+        return {
+            ok: false,
+            statusCode: 504,
+            reason: 'timeout',
+            message: 'Request timeout: The website took too long to respond. Please try again or check if the website is accessible.'
+        };
+    }
+
+    const parts = [
+        (error.code || '').toString().toLowerCase(),
+        (error.cause && error.cause.code ? error.cause.code.toString().toLowerCase() : ''),
+        (error.cause && error.cause.errno ? error.cause.errno.toString().toLowerCase() : ''),
+        (error.message || '').toLowerCase()
+    ].filter(Boolean);
+
+    const combined = parts.join(' ');
+
+    const mappings = [
+        {
+            match: 'enotfound',
+            reason: 'dns_not_found',
+            message: 'Website unreachable: DNS lookup failed. Please verify the domain name and try again.'
+        },
+        {
+            match: 'eai_again',
+            reason: 'dns_timeout',
+            message: 'Website unreachable: Temporary DNS issue detected. Please try again shortly.'
+        },
+        {
+            match: 'econnrefused',
+            reason: 'connection_refused',
+            message: 'Website unreachable: The server refused the connection. Please make sure the website is online.'
+        },
+        {
+            match: 'etimedout',
+            reason: 'timeout',
+            message: 'Request timeout: The website took too long to respond. Please try again or check if the website is accessible.'
+        },
+        {
+            match: 'self signed certificate',
+            reason: 'ssl_error',
+            message: 'Website unreachable: SSL certificate error detected. Please verify the website\'s certificate.'
+        }
+    ];
+
+    for (const mapping of mappings) {
+        if (combined.includes(mapping.match)) {
+            return {
+                ok: false,
+                statusCode: 504,
+                reason: mapping.reason,
+                message: mapping.message
+            };
+        }
+    }
+
+    const fallbackReason = (error.code || error.cause?.code || 'network_error') ?
+        (error.code || error.cause?.code || 'network_error').toString().toLowerCase() :
+        'network_error';
+
+    return {
+        ok: false,
+        statusCode: 504,
+        reason: fallbackReason,
+        message: `Website unreachable: ${url} could not be reached. Please ensure it is accessible and try again.`
+    };
+}
 
 // Helper: Scrape website
 async function scrapeWebsite(url) {
