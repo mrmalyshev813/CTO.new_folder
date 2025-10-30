@@ -8,7 +8,7 @@
     "start": "echo \"Static site - use any HTTP server to serve index.html\"",
     "lint": "eslint netlify/functions/**/*.js --fix",
     "lint:check": "eslint netlify/functions/**/*.js",
-    "validate:js": "node -c netlify/functions/analyze.js && node -c netlify/functions/export-docx.js && node -c netlify/functions/export-pdf.js",
+    "validate:js": "node -c netlify/functions/analyze.js && node -c netlify/functions/screenshot.js && node -c netlify/functions/export-docx.js && node -c netlify/functions/export-pdf.js",
     "validate:html": "node -e \"const fs = require('fs'); const html = fs.readFileSync('index.html', 'utf8'); if (!html.includes('<!DOCTYPE html>')) { throw new Error('Invalid HTML'); } console.log('HTML is valid');\"",
     "prepare": "husky",
     "precommit": "npm run validate:js && npm run validate:html && npm run lint:check"
