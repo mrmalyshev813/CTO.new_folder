@@ -596,15 +596,28 @@
                     body: JSON.stringify({ url: normalizedUrl })
                 });
                 
+                const data = await response.json().catch(() => ({}));
+                
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                    // Сервер вернул ошибку - сохраняем детали
+                    const error = new Error(data.error || `Server error: ${response.status}`);
+                    error.details = data.details;
+                    error.timestamp = data.timestamp;
+                    error.data = data; // Сохраняем весь объект данных
+                    console.error('❌ Server error:', error);
+                    console.error('Error details:', data);
+                    throw error;
                 }
                 
-                const data = await response.json();
-                
                 if (!data.success) {
-                    throw new Error(data.error || 'Analysis failed');
+                    // Ответ успешный, но операция провалилась - сохраняем детали
+                    const error = new Error(data.error || 'Analysis failed');
+                    error.details = data.details;
+                    error.timestamp = data.timestamp;
+                    error.data = data;
+                    console.error('❌ Analysis failed:', error);
+                    console.error('Error details:', data);
+                    throw error;
                 }
                 
                 console.log('✅ Analysis complete');
@@ -626,8 +639,42 @@
                     <div style="margin-bottom: 20px;">
                         <h3 style="margin: 0 0 10px 0; color: #0066ff;">📸 Скриншот сайта:</h3>
                         <img src="${result.screenshot}" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;" />
-                    </div>
                 `;
+                
+                // Показать метаданные производительности если есть
+                if (result.metadata || result.screenshotMetadata) {
+                    const metadata = result.metadata || result.screenshotMetadata;
+                    html += `
+                        <details style="margin-top: 10px; cursor: pointer;">
+                            <summary style="color: #0066ff; font-size: 14px; font-weight: 600;">📊 Метрики загрузки</summary>
+                            <div style="margin-top: 10px; padding: 10px; background: #0a0a0a; border-radius: 4px; font-size: 13px;">
+                    `;
+                    
+                    if (metadata.attempts) {
+                        html += `<p style="margin: 5px 0;"><strong>🔢 Попыток загрузки:</strong> ${metadata.attempts}</p>`;
+                    }
+                    
+                    if (metadata.loadTime) {
+                        html += `<p style="margin: 5px 0;"><strong>⏱️ Время загрузки страницы:</strong> ${metadata.loadTime}ms</p>`;
+                    }
+                    
+                    if (metadata.blockedResources !== undefined) {
+                        html += `<p style="margin: 5px 0;"><strong>🚫 Заблокировано лишних ресурсов:</strong> ${metadata.blockedResources}</p>`;
+                    }
+                    
+                    if (metadata.performanceMetrics) {
+                        const pm = metadata.performanceMetrics;
+                        html += `<p style="margin: 10px 0 5px 0; color: #888;"><strong>Детали производительности:</strong></p>`;
+                        if (pm.browserLaunch) html += `<p style="margin: 5px 0; padding-left: 10px;">Browser: ${pm.browserLaunch}ms</p>`;
+                        if (pm.pageLoad) html += `<p style="margin: 5px 0; padding-left: 10px;">Page load: ${pm.pageLoad}ms</p>`;
+                        if (pm.screenshot) html += `<p style="margin: 5px 0; padding-left: 10px;">Screenshot: ${pm.screenshot}ms</p>`;
+                        if (pm.totalTime) html += `<p style="margin: 5px 0; padding-left: 10px; color: #0066ff;">Total: ${pm.totalTime}ms</p>`;
+                    }
+                    
+                    html += `</div></details>`;
+                }
+                
+                html += `</div>`;
             }
             
             // Language and Company Info
@@ -755,18 +802,88 @@
                 const showTechnicalDetails = friendlyMessage !== message;
                 const primaryParagraphMargin = isApiKeyError || showTechnicalDetails ? '10px' : '0';
                 
-                results.innerHTML = `
+                // Пытаемся получить детали ошибки из data если это ответ от сервера
+                let errorDetails = null;
+                if (error.data) {
+                    errorDetails = error.data;
+                } else if (error.details) {
+                    errorDetails = error.details;
+                }
+                
+                let errorHtml = `
                     <div style="color: #ff4444; padding: 20px; background: #1a1a1a; border-radius: 8px; border: 1px solid #ff4444;">
                         <h3 style="margin-top: 0;">❌ Ошибка</h3>
-                        <p style="margin-bottom: ${primaryParagraphMargin};">${friendlyMessage}</p>
-                        ${showTechnicalDetails ? `<p style="margin: 0 0 ${isApiKeyError ? '10px' : '0'} 0; color: #888; font-size: 13px;">${message}</p>` : ''}
-                        ${isApiKeyError ? `
-                            <button onclick="document.getElementById('apiKeyButton').click()" style="padding: 10px 20px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px;">
-                                🔑 Настроить API ключ
-                            </button>
-                        ` : ''}
-                    </div>
+                        <p style="font-size: 16px; margin: 10px 0;">${friendlyMessage}</p>
                 `;
+                
+                // Если есть детали - показать их
+                if (errorDetails) {
+                    errorHtml += `
+                        <details style="margin-top: 15px; cursor: pointer;">
+                            <summary style="color: #ffaa00; font-weight: 600;">📋 Детальный отчет об ошибке</summary>
+                            <div style="margin-top: 10px; padding: 15px; background: #0a0a0a; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                    `;
+                    
+                    // URL
+                    errorHtml += `<p><strong>🔗 URL:</strong> ${errorDetails.url || url}</p>`;
+                    
+                    // Количество попыток
+                    if (errorDetails.totalAttempts) {
+                        errorHtml += `<p><strong>🔢 Попыток:</strong> ${errorDetails.totalAttempts}</p>`;
+                    }
+                    
+                    // Время
+                    errorHtml += `<p><strong>⏰ Время:</strong> ${errorDetails.timestamp || new Date().toISOString()}</p>`;
+                    
+                    // Все ошибки по попыткам
+                    if (errorDetails.errors && errorDetails.errors.length > 0) {
+                        errorHtml += `<p style="margin-top: 15px;"><strong>📝 История попыток:</strong></p>`;
+                        errorDetails.errors.forEach((err, idx) => {
+                            errorHtml += `
+                                <div style="margin: 10px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #ff4444;">
+                                    <p><strong>Попытка ${err.attempt}:</strong></p>
+                                    <p style="color: #ff6666;">Тип: ${err.errorName}</p>
+                                    <p style="color: #ff6666;">Сообщение: ${err.errorMessage}</p>
+                                    <p style="color: #999; font-size: 10px;">Время: ${err.time}</p>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    // Stack trace последней ошибки
+                    if (errorDetails.errorStack) {
+                        errorHtml += `
+                            <details style="margin-top: 10px;">
+                                <summary style="color: #666;">Stack trace</summary>
+                                <pre style="margin-top: 5px; color: #666; font-size: 10px; white-space: pre-wrap; word-wrap: break-word;">${errorDetails.errorStack}</pre>
+                            </details>
+                        `;
+                    }
+                    
+                    errorHtml += `</div></details>`;
+                }
+                
+                errorHtml += `
+                        <p style="margin-top: 15px; color: #ffaa00;">
+                            💡 <strong>Возможные причины:</strong><br>
+                            • Сайт недоступен или медленно отвечает<br>
+                            • Проблемы с интернет-соединением<br>
+                            • Сайт блокирует автоматические запросы<br>
+                            • Неверный URL
+                        </p>
+                `;
+                
+                if (isApiKeyError) {
+                    errorHtml += `
+                        <button onclick="document.getElementById('apiKeyButton').click()" style="padding: 10px 20px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px;">
+                            🔑 Настроить API ключ
+                        </button>
+                    `;
+                }
+                
+                errorHtml += `</div>`;
+                
+                results.innerHTML = errorHtml;
             } finally {
                 searchButton.disabled = false;
                 searchButton.textContent = 'Найти';

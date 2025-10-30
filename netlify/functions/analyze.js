@@ -131,7 +131,7 @@ exports.handler = async (event) => {
         // STEP 1: Get screenshot
         console.log('\n📸 STEP 1: Getting screenshot...');
         const screenshotController = new AbortController();
-        const screenshotTimeout = setTimeout(() => screenshotController.abort(), 20000);
+        const screenshotTimeout = setTimeout(() => screenshotController.abort(), 90000); // Увеличен до 90 секунд для retry логики
         
         const screenshotResponse = await fetch(`${process.env.URL}/.netlify/functions/screenshot`, {
             method: 'POST',
@@ -142,12 +142,41 @@ exports.handler = async (event) => {
         clearTimeout(screenshotTimeout);
         
         if (!screenshotResponse.ok) {
-            throw new Error('Failed to get screenshot');
+            // Попробовать получить детальную информацию об ошибке
+            let errorDetails;
+            try {
+                errorDetails = await screenshotResponse.json();
+            } catch {
+                errorDetails = { error: 'Failed to get screenshot', details: null };
+            }
+            
+            // Передать детальную ошибку дальше
+            const error = new Error(errorDetails.error || 'Failed to get screenshot');
+            error.details = errorDetails.details;
+            error.timestamp = errorDetails.timestamp;
+            throw error;
         }
         
         const screenshotData = await screenshotResponse.json();
+        
+        if (!screenshotData.success) {
+            // Обработать детальную ошибку из screenshot функции
+            const error = new Error(screenshotData.error || 'Screenshot failed');
+            error.details = screenshotData.details;
+            error.timestamp = screenshotData.timestamp;
+            throw error;
+        }
+        
         const screenshot = screenshotData.screenshot;
         console.log('✅ Screenshot obtained');
+        
+        // Логировать метаданные производительности если есть
+        if (screenshotData.metadata) {
+            console.log(`📊 Screenshot метрики:`);
+            console.log(`   Попыток: ${screenshotData.metadata.attempts || 1}`);
+            console.log(`   Время загрузки: ${screenshotData.metadata.loadTime || 'N/A'}ms`);
+            console.log(`   Заблокировано ресурсов: ${screenshotData.metadata.blockedResources || 0}`);
+        }
         
         // STEP 2: Analyze with Vision AI
         console.log('\n🤖 STEP 2: Analyzing with OpenAI Vision...');
@@ -240,6 +269,7 @@ Return JSON:
             body: JSON.stringify({
                 success: true,
                 screenshot,
+                metadata: screenshotData.metadata, // Передаем метаданные производительности
                 zones: analysis.zones,
                 language: analysis.language,
                 emails: scraped.emails,
@@ -263,16 +293,32 @@ Return JSON:
             statusCode = 504;
         }
         
+        // Подготовить детальный отчет об ошибке
+        const errorReport = {
+            success: false,
+            error: errorMessage,
+            details: error.details || {
+                errorType: error.name,
+                errorMessage: error.message,
+                errorStack: error.stack,
+                url: url,
+                timestamp: error.timestamp || new Date().toISOString()
+            },
+            timestamp: error.timestamp || new Date().toISOString()
+        };
+        
+        console.error('📋 ДЕТАЛЬНЫЙ ОТЧЕТ ОБ ОШИБКЕ:');
+        console.error(JSON.stringify(errorReport, null, 2));
+        
         return {
             statusCode: statusCode,
             headers: { 
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type, X-OpenAI-API-Key',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS'
             },
-            body: JSON.stringify({
-                success: false,
-                error: errorMessage
-            })
+            body: JSON.stringify(errorReport)
         };
     }
 };
