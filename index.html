@@ -422,6 +422,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             initApiKey();
             updateApiButtonState();
+            checkApiKeyOnStartup();
         });
         
         // Load saved API key
@@ -430,6 +431,32 @@
             if (savedKey) {
                 apiKeyInput.value = savedKey;
                 console.log('✅ API key loaded from localStorage');
+            } else {
+                console.log('ℹ️ No API key found. Please configure your OpenAI API key.');
+            }
+        }
+        
+        // Check API key on startup and show modal if missing
+        function checkApiKeyOnStartup() {
+            const apiKey = getApiKey();
+            if (!apiKey || !apiKey.startsWith('sk-')) {
+                console.log('⚠️ API key not configured');
+                // Show a welcome message
+                setTimeout(() => {
+                    results.innerHTML = `
+                        <div style="padding: 30px; background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 102, 255, 0.05) 100%); border-radius: 8px; border: 1px solid rgba(0, 102, 255, 0.3);">
+                            <h3 style="margin: 0 0 15px 0; color: #0066ff;">👋 Добро пожаловать!</h3>
+                            <p style="margin: 0 0 15px 0; color: #ccc; line-height: 1.6;">
+                                Для начала работы необходимо настроить API ключ OpenAI. 
+                                Получите его на <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #0066ff; text-decoration: none;">platform.openai.com</a>
+                            </p>
+                            <button onclick="document.getElementById('apiKeyButton').click()" style="padding: 12px 24px; background: #0066ff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
+                                🔑 Настроить API ключ
+                            </button>
+                        </div>
+                    `;
+                    results.classList.add('visible');
+                }, 500);
             }
         }
         
@@ -524,13 +551,26 @@
                     normalizedUrl = 'https://' + normalizedUrl;
                 }
                 
+                // Get API key from localStorage
+                const apiKey = getApiKey();
+                if (!apiKey) {
+                    throw new Error('API ключ не настроен. Пожалуйста, нажмите "Подключить API OpenAI" в правом нижнем углу.');
+                }
+                
                 console.log('🔍 Starting analysis for:', normalizedUrl);
+                
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+                
+                // Add API key to headers if available
+                if (apiKey) {
+                    headers['X-OpenAI-API-Key'] = apiKey;
+                }
                 
                 const response = await fetch('/.netlify/functions/analyze', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: headers,
                     body: JSON.stringify({ url: normalizedUrl })
                 });
                 
@@ -687,10 +727,16 @@
                 results.appendChild(timeInfo);
                 
             } catch (error) {
+                const isApiKeyError = error.message.includes('API ключ') || error.message.includes('API key');
                 results.innerHTML = `
                     <div style="color: #ff4444; padding: 20px; background: #1a1a1a; border-radius: 8px; border: 1px solid #ff4444;">
                         <h3 style="margin-top: 0;">❌ Ошибка</h3>
-                        <p>${error.message}</p>
+                        <p style="margin-bottom: ${isApiKeyError ? '15px' : '0'};">${error.message}</p>
+                        ${isApiKeyError ? `
+                            <button onclick="document.getElementById('apiKeyButton').click()" style="padding: 10px 20px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px;">
+                                🔑 Настроить API ключ
+                            </button>
+                        ` : ''}
                     </div>
                 `;
             } finally {

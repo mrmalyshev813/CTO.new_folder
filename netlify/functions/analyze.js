@@ -2,6 +2,19 @@ const { OpenAI } = require('openai');
 const cheerio = require('cheerio');
 
 exports.handler = async (event) => {
+    // Handle CORS preflight
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type, X-OpenAI-API-Key',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS'
+            },
+            body: ''
+        };
+    }
+    
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
@@ -19,8 +32,28 @@ exports.handler = async (event) => {
     console.log('URL:', url);
     
     try {
+        // Get API key from header or environment variable
+        const apiKey = event.headers['x-openai-api-key'] || process.env.OPENAI_API_KEY;
+        
+        if (!apiKey) {
+            console.error('❌ API key is missing');
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({
+                    success: false,
+                    error: 'The OPENAI_API_KEY is missing. Please configure your API key in the settings.'
+                })
+            };
+        }
+        
+        console.log('✅ API key found');
+        
         const openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
+            apiKey: apiKey
         });
         
         // STEP 1: Get screenshot
@@ -124,7 +157,7 @@ Return JSON:
             headers: { 
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Headers': 'Content-Type, X-OpenAI-API-Key',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS'
             },
             body: JSON.stringify({
