@@ -1,715 +1,322 @@
-const chromium = require('@sparticuz/chromium');
-const puppeteer = require('puppeteer-core');
 const { OpenAI } = require('openai');
 const cheerio = require('cheerio');
-const { v4: uuidv4 } = require('uuid');
-const fs = require('fs').promises;
-const path = require('path');
-const { Document, Packer, Paragraph, TextRun } = require('docx');
-const PDFDocument = require('pdfkit');
 
-const analysisCache = new Map();
-
-function getFriendlyCrawlError(error) {
-  const message = (error && error.message) ? error.message : '';
-  if (!message) {
-    return 'We were unable to load the website. Please try again with a valid URL.';
-  }
-
-  const normalized = message.toLowerCase();
-
-  if (normalized.includes('timeout')) {
-    return 'Navigation timed out while loading the website. Please try again in a moment or choose a lighter page.';
-  }
-
-  if (normalized.includes('err_name_not_resolved') || normalized.includes('enotfound') || normalized.includes('dns')) {
-    return 'We could not resolve that domain. Please confirm the URL is correct and publicly accessible.';
-  }
-
-  if (normalized.includes('invalid url') || normalized.includes('protocol error: url') || normalized.includes('url is not valid')) {
-    return 'The URL appears to be invalid. Please include the full address starting with http:// or https://';
-  }
-
-  if (normalized.includes('err_connection_refused') || normalized.includes('err_connection_timed_out') || normalized.includes('failed to fetch')) {
-    return 'We were unable to reach the website. The server may be offline or blocking requests.';
-  }
-
-  if (normalized.includes('libnss3.so') || normalized.includes('dependencies')) {
-    return 'Chromium dependencies are missing in this environment. Please ensure all required system packages are installed.';
-  }
-
-  return 'We were unable to load the website. Please try again or use a different URL.';
-}
-
-function normalizeUrl(url) {
-  console.log('🔍 Normalizing URL:', url);
-  
-  try {
-    // Remove whitespace
-    url = url.trim();
-    
-    // Add https:// if no protocol is present
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
-      console.log('✅ Added https:// prefix');
-    }
-    
-    // Validate URL format
-    const urlObj = new URL(url);
-    console.log('✅ URL is valid:', urlObj.href);
-    
-    return {
-      url: urlObj.href,
-      success: true,
-      error: null
-    };
-  } catch (error) {
-    console.error('❌ URL normalization failed:', error.message);
-    return {
-      url: null,
-      success: false,
-      error: `Invalid URL format: ${error.message}`
-    };
-  }
-}
-
-async function crawlWebsiteWithPuppeteer(url) {
-  console.log('🔍 === PUPPETEER CRAWL METHOD ===');
-  console.log('Starting website crawl for:', url);
-  
-  let browser = null;
-  try {
-    // Normalize and validate URL
-    const normalizeResult = normalizeUrl(url);
-    if (!normalizeResult.success) {
-      throw new Error(normalizeResult.error);
-    }
-    url = normalizeResult.url;
-    
-    console.log('🚀 Launching browser...');
-    console.log('🕐 Timestamp:', new Date().toISOString());
-    
-    const executablePath = await chromium.executablePath();
-    console.log('✅ Chromium executable path:', executablePath);
-    
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: executablePath ?? undefined,
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true,
-    });
-
-    console.log('✅ Browser launched successfully');
-    console.log('📄 Creating new page...');
-    
-    const page = await browser.newPage();
-    console.log('✅ Page created');
-    
-    await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
-    
-    console.log('🌐 Navigating to URL:', url);
-    console.log('⏰ Navigation timeout set to: 20000ms');
-    
-    await page.goto(url, { 
-      waitUntil: 'domcontentloaded', 
-      timeout: 20000 
-    });
-
-    console.log('✅ Page loaded successfully');
-    
-    // Wait a bit for dynamic content to load
-    console.log('⏳ Waiting for dynamic content (2s)...');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log('📸 Taking screenshot...');
-    const screenshotBuffer = await page.screenshot({ 
-      fullPage: true, 
-      type: 'jpeg',
-      quality: 80
-    });
-    
-    console.log(`✅ Screenshot captured (${screenshotBuffer.length} bytes)`);
-    console.log('📄 Extracting HTML content...');
-    
-    const htmlContent = await page.content();
-
-    console.log(`✅ HTML extracted (${htmlContent.length} characters)`);
-    console.log('🔒 Closing browser...');
-    
-    await browser.close();
-    console.log('✅ Browser closed successfully');
-
-    const $ = cheerio.load(htmlContent);
-    const cleanedHtml = $.html();
-
-    console.log('✅ Puppeteer crawl completed successfully');
-
-    return {
-      screenshot: screenshotBuffer,
-      screenshotType: 'image/jpeg',
-      html: cleanedHtml,
-      success: true,
-      error: null,
-      method: 'puppeteer'
-    };
-  } catch (error) {
-    if (browser) {
-      try {
-        await browser.close();
-        console.log('🔒 Browser closed after error');
-      } catch (closeErr) {
-        console.warn('⚠️ Failed to close browser after error:', closeErr.message);
-      }
+exports.handler = async (event) => {
+    if (event.httpMethod !== 'POST') {
+        return {
+            statusCode: 405,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({ error: 'Method not allowed' })
+        };
     }
 
-    console.error('❌ Puppeteer crawl failed for:', url);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-
-    return {
-      screenshot: null,
-      html: null,
-      success: false,
-      error: getFriendlyCrawlError(error),
-      method: 'puppeteer'
-    };
-  }
-}
-
-
-
-async function crawlWebsite(url) {
-  console.log('🔍 === STARTING WEBSITE CRAWL ===');
-  console.log('⏰ Timestamp:', new Date().toISOString());
-  console.log('Input URL:', url);
-  
-  console.log('\n--- Attempt 1: Puppeteer Method ---');
-  const puppeteerResult = await crawlWebsiteWithPuppeteer(url);
-  
-  if (puppeteerResult.success) {
-    console.log('✅ Puppeteer method succeeded!');
-    return puppeteerResult;
-  }
-  
-  console.error('❌ Puppeteer method failed. No fallback available.');
-  console.error('Puppeteer error:', puppeteerResult.error);
-  
-  return {
-    screenshot: null,
-    screenshotUrl: null,
-    html: null,
-    success: false,
-    error: `Failed to crawl website: ${puppeteerResult.error}`,
-    method: 'puppeteer'
-  };
-}
-
-async function analyzeWithAI(url, htmlContent, screenshotUrl = null) {
-  console.log('🤖 === STARTING AI ANALYSIS ===');
-  console.log('⏰ Timestamp:', new Date().toISOString());
-  console.log('URL:', url);
-  console.log('HTML content length:', htmlContent ? htmlContent.length : 0);
-  console.log('Screenshot URL provided:', !!screenshotUrl);
-  
-  try {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('❌ OpenAI API key is not configured');
-      throw new Error('OpenAI API key is not configured in environment');
-    }
-
-    console.log('✅ OpenAI API key found');
+    const { url } = JSON.parse(event.body);
     
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    console.log('\n🔍 === ANALYSIS START ===');
+    console.log('URL:', url);
+    
+    try {
+        const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY
+        });
+        
+        // STEP 1: Get screenshot
+        console.log('\n📸 STEP 1: Getting screenshot...');
+        const screenshotResponse = await fetch(`${process.env.URL}/.netlify/functions/screenshot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        
+        if (!screenshotResponse.ok) {
+            throw new Error('Failed to get screenshot');
+        }
+        
+        const screenshotData = await screenshotResponse.json();
+        const screenshot = screenshotData.screenshot;
+        console.log('✅ Screenshot obtained');
+        
+        // STEP 2: Analyze with Vision AI
+        console.log('\n🤖 STEP 2: Analyzing with OpenAI Vision...');
+        const visionCompletion = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [{
+                role: 'user',
+                content: [
+                    {
+                        type: 'text',
+                        text: `Analyze screenshot of ${url} for advertising opportunities.
 
-    console.log('✅ OpenAI client initialized');
+Identify these ad zones:
+1. Header (top navigation area)
+2. Sidebar (left/right column)
+3. Content (within main content)
+4. Footer (bottom area)
+5. Popup (modal windows)
 
-    const htmlSnippet = htmlContent.length > 5000 
-      ? htmlContent.substring(0, 5000) 
-      : htmlContent;
+For each zone provide:
+- name: zone name
+- available: true if space is FREE, false if OCCUPIED by ads
+- size: banner size (e.g. "728x90", "300x250")
+- priority: "high" for premium spots, "medium" for good spots, "low" for poor spots
+- description: detailed description
 
-    console.log(`📄 HTML snippet prepared: ${htmlSnippet.length} characters`);
+Also detect website language (ru or en).
 
-    const prompt = `You are an expert in web advertising and ad placement optimization.
-
-Analyze the following website: ${url}
-
-HTML structure (snippet):
-${htmlSnippet}
-
-Identify the optimal ad placement zones on this website. For each zone, assign a priority level.
-
-Available zones:
-- Header: Top of the page, navigation area
-- Sidebar: Left or right sidebar areas
-- Content: Within the main content area
-- Footer: Bottom of the page
-- Popup: Overlay or modal opportunities
-
-For each zone you identify as present and suitable for ads, assign one of these priorities:
-- high: Highly visible, high engagement potential
-- medium: Moderate visibility and engagement
-- low: Present but less optimal
-
-Return a JSON object with a "zones" array containing objects with this exact format:
+Return JSON:
 {
   "zones": [
-    {"zone": "Header", "priority": "high"},
-    {"zone": "Sidebar", "priority": "medium"}
-  ]
-}
-
-Important: Only include zones that actually exist on the website. Do not include all zones by default.
-Return ONLY valid JSON, no additional text or explanation.`;
-
-    console.log('📡 Calling OpenAI API...');
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are an expert web advertising analyst. Always respond with valid JSON only.' 
-        },
-        { 
-          role: 'user', 
-          content: prompt 
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 500
-    });
-
-    console.log('✅ OpenAI API response received');
-
-    let content = response.choices[0].message.content.trim();
-    console.log('📥 Raw AI response:', content.substring(0, 200) + '...');
-
-    // Clean up markdown code blocks if present
-    if (content.startsWith('```json')) {
-      content = content.substring(7);
-    }
-    if (content.startsWith('```')) {
-      content = content.substring(3);
-    }
-    if (content.endsWith('```')) {
-      content = content.slice(0, -3);
-    }
-    content = content.trim();
-
-    console.log('🧹 Cleaned AI response:', content.substring(0, 200) + '...');
-
-    let parsedData;
-    try {
-      parsedData = JSON.parse(content);
-      console.log('✅ Successfully parsed JSON response');
-    } catch (parseError) {
-      console.error('❌ JSON parse error:', parseError.message);
-      console.error('❌ Failed content:', content);
-      throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
-    }
-
-    // Handle both array and object formats
-    let zones;
-    if (Array.isArray(parsedData)) {
-      zones = parsedData;
-    } else if (parsedData.zones && Array.isArray(parsedData.zones)) {
-      zones = parsedData.zones;
-    } else {
-      throw new Error('AI response does not contain a valid zones array');
-    }
-
-    console.log(`✅ Found ${zones.length} zones`);
-
-    // Validate zone format
-    for (const zone of zones) {
-      if (!zone.zone || !zone.priority) {
-        console.error('❌ Invalid zone format:', zone);
-        throw new Error('Invalid zone format in AI response');
-      }
-    }
-
-    console.log('✅ AI analysis completed successfully');
-
-    return {
-      zones,
-      success: true,
-      error: null
-    };
-  } catch (error) {
-    console.error('❌ Error in analyzeWithAI:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-
-    return {
-      zones: [],
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-function generateProposal(url, zones) {
-  const proposalLines = [
-    `Subject: Предложение по рекламе на сайте ${url}`,
-    '',
-    'Здравствуйте!',
-    '',
-    `Прежде всего хочу поздравить вас с успешным развитием вашего ресурса. ${url} привлекает широкую аудиторию. Мы в Adlook уверены, что грамотное размещение рекламы позволит значительно увеличить доход.`,
-    '',
-    'Немного о нас: Adlook — это российская SSP-платформа (Supply-Side Platform), основанная в 2018 году в Санкт-Петербурге. Мы помогаем владельцам сайтов монетизировать свои ресурсы.',
-    '',
-    'Мы проанализировали ваш сайт и выделили несколько эффективных зон:'
-  ];
-
-  const priorityZones = zones.filter(z => 
-    ['high', 'medium', 'low'].includes(z.priority)
-  );
-
-  if (priorityZones.length > 0) {
-    priorityZones.forEach((zone, idx) => {
-      proposalLines.push(`${idx + 1}. ${zone.zone} – ${zone.priority} level`);
-    });
-  } else {
-    proposalLines.push('Не удалось определить конкретные зоны.');
-  }
-
-  proposalLines.push(
-    '',
-    'Потенциальный доход: от 50,000 до 150,000 рублей в месяц.',
-    '',
-    'Что мы предлагаем:',
-    '- Сроки размещения: от одного месяца',
-    '- Форматы: баннеры, контекстная реклама, всплывающие окна',
-    '- Программная настройка рекламы под ваш сайт',
-    '',
-    'С уважением,',
-    'Менеджер по работе с партнёрами, Adlook'
-  );
-
-  return proposalLines.join('\n');
-}
-
-async function createDOCX(proposalText, analysisId) {
-  try {
-    const lines = proposalText.split('\n');
-    const paragraphs = lines.map(line => {
-      if (line.trim()) {
-        return new Paragraph({
-          children: [
-            new TextRun({
-              text: line,
-              size: 22
+    {"name": "Header", "available": true, "size": "728x90", "priority": "high", "description": "..."}
+  ],
+  "language": "ru" or "en"
+}`
+                    },
+                    {
+                        type: 'image_url',
+                        image_url: {
+                            url: screenshot,
+                            detail: 'high'
+                        }
+                    }
+                ]
+            }],
+            response_format: { type: 'json_object' },
+            max_tokens: 2000
+        });
+        
+        const analysis = JSON.parse(visionCompletion.choices[0].message.content);
+        console.log('✅ Vision analysis complete');
+        console.log('Found zones:', analysis.zones.length);
+        console.log('Language:', analysis.language);
+        
+        // STEP 3: Scrape for email and company
+        console.log('\n📧 STEP 3: Scraping website...');
+        const scraped = await scrapeWebsite(url);
+        console.log('✅ Scraping complete');
+        console.log('Emails found:', scraped.emails.length);
+        console.log('Company:', scraped.companyName || 'Not found');
+        
+        // STEP 4: Research company owner
+        console.log('\n🔎 STEP 4: Researching owner...');
+        const ownerInfo = await researchOwner(scraped.companyName, url, openai);
+        console.log('✅ Research complete');
+        
+        // STEP 5: Generate personalized proposal
+        console.log('\n✍️ STEP 5: Generating proposal...');
+        const proposal = await generateProposal({
+            url,
+            zones: analysis.zones,
+            language: analysis.language,
+            companyName: scraped.companyName,
+            emails: scraped.emails,
+            ownerInfo,
+            openai
+        });
+        console.log('✅ Proposal generated');
+        
+        console.log('\n🎉 === ANALYSIS COMPLETE ===\n');
+        
+        return {
+            statusCode: 200,
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS'
+            },
+            body: JSON.stringify({
+                success: true,
+                screenshot,
+                zones: analysis.zones,
+                language: analysis.language,
+                emails: scraped.emails,
+                companyName: scraped.companyName,
+                ownerInfo,
+                proposal
             })
-          ]
-        });
-      } else {
-        return new Paragraph({
-          children: [new TextRun({ text: '' })]
-        });
-      }
-    });
-
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: paragraphs
-      }]
-    });
-
-    const buffer = await Packer.toBuffer(doc);
-    const tmpDir = '/tmp/adlook_exports';
-    
-    try {
-      await fs.mkdir(tmpDir, { recursive: true });
-    } catch {
-      // Directory might already exist
-    }
-    
-    const filePath = path.join(tmpDir, `${analysisId}.docx`);
-    await fs.writeFile(filePath, buffer);
-
-    return {
-      path: filePath,
-      success: true,
-      error: null
-    };
-  } catch (error) {
-    return {
-      path: null,
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-async function createPDF(proposalText, analysisId) {
-  try {
-    const tmpDir = '/tmp/adlook_exports';
-    
-    try {
-      await fs.mkdir(tmpDir, { recursive: true });
-    } catch {
-      // Directory might already exist
-    }
-    
-    const filePath = path.join(tmpDir, `${analysisId}.pdf`);
-    
-    return new Promise((resolve, _reject) => {
-      const doc = new PDFDocument();
-      const stream = require('fs').createWriteStream(filePath);
-
-      doc.pipe(stream);
-
-      doc.font('Helvetica');
-      doc.fontSize(11);
-
-      const lines = proposalText.split('\n');
-      lines.forEach(line => {
-        if (line.trim()) {
-          doc.text(line, { lineGap: 4 });
-        } else {
-          doc.moveDown(0.5);
-        }
-      });
-
-      doc.end();
-
-      stream.on('finish', () => {
-        resolve({
-          path: filePath,
-          success: true,
-          error: null
-        });
-      });
-
-      stream.on('error', (error) => {
-        resolve({
-          path: null,
-          success: false,
-          error: error.message
-        });
-      });
-    });
-  } catch (error) {
-    return {
-      path: null,
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-exports.handler = async (event, _context) => {
-  console.log('\n\n');
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log('🚀 === ANALYZE FUNCTION CALLED ===');
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log('⏰ Timestamp:', new Date().toISOString());
-  console.log('HTTP Method:', event.httpMethod);
-  console.log('Request headers:', JSON.stringify(event.headers, null, 2));
-  
-  if (event.httpMethod !== 'POST') {
-    console.log('❌ Invalid HTTP method');
-    return {
-      statusCode: 405,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
-
-  try {
-    console.log('📥 Parsing request body...');
-    console.log('Raw body:', event.body);
-    
-    const { url, action } = JSON.parse(event.body);
-
-    if (!url) {
-      console.log('❌ URL is missing from request');
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({ error: 'URL is required' })
-      };
-    }
-
-    console.log('✅ Request validated, URL:', url);
-    console.log('Action:', action || 'full analysis');
-    console.log('URL type:', typeof url);
-    console.log('URL length:', url.length);
-    console.log('==========================================');
-    console.log('STEP 1: Crawling website');
-    console.log('==========================================');
-
-    const crawlResult = await crawlWebsite(url);
-    
-    // If action is "screenshot", only return the screenshot
-    if (action === 'screenshot') {
-      if (!crawlResult.success) {
-        console.log('❌ Crawl failed:', crawlResult.error);
-        return {
-          statusCode: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          },
-          body: JSON.stringify({ 
-            error: `Failed to get screenshot: ${crawlResult.error}` 
-          })
         };
-      }
-      
-      if (!crawlResult.screenshot) {
-        console.log('❌ No screenshot available');
+        
+    } catch (error) {
+        console.error('\n❌ === ANALYSIS FAILED ===');
+        console.error('Error:', error.message);
+        console.error('Stack:', error.stack);
+        
         return {
-          statusCode: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          },
-          body: JSON.stringify({ 
-            error: 'Screenshot not available' 
-          })
+            statusCode: 500,
+            headers: { 
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+                success: false,
+                error: error.message
+            })
         };
-      }
-      
-      console.log('✅ Screenshot obtained, returning...');
-      return {
-        statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS'
-        },
-        body: JSON.stringify({
-          screenshot: crawlResult.screenshot.toString('base64'),
-          contentType: crawlResult.screenshotType || 'image/jpeg'
-        })
-      };
     }
-
-    if (!crawlResult.success) {
-      console.log('❌ Crawl failed:', crawlResult.error);
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({ 
-          error: `Failed to crawl website: ${crawlResult.error}` 
-        })
-      };
-    }
-
-    console.log('✅ Crawl completed successfully');
-    console.log('Crawl method used:', crawlResult.method);
-    console.log('==========================================');
-    console.log('STEP 2: Analyzing with AI');
-    console.log('==========================================');
-
-    const aiResult = await analyzeWithAI(url, crawlResult.html, crawlResult.screenshotUrl);
-
-    if (!aiResult.success) {
-      console.log('❌ AI analysis failed:', aiResult.error);
-      return {
-        statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({ 
-          error: `Failed to analyze website: ${aiResult.error}` 
-        })
-      };
-    }
-
-    console.log('✅ AI analysis completed successfully');
-    console.log('==========================================');
-    console.log('STEP 3: Generating proposal');
-    console.log('==========================================');
-
-    const proposalText = generateProposal(url, aiResult.zones);
-    const analysisId = uuidv4();
-
-    console.log('✅ Proposal generated, Analysis ID:', analysisId);
-
-    analysisCache.set(analysisId, {
-      url,
-      zones: aiResult.zones,
-      proposalText,
-      screenshot: crawlResult.screenshot
-    });
-
-    console.log('✅ Result cached');
-    console.log('==========================================');
-    console.log('STEP 4: Creating export files');
-    console.log('==========================================');
-
-    const docxResult = await createDOCX(proposalText, analysisId);
-    const pdfResult = await createPDF(proposalText, analysisId);
-
-    if (docxResult.success) {
-      console.log('✅ DOCX file created');
-    } else {
-      console.log('⚠️ DOCX creation failed:', docxResult.error);
-    }
-
-    if (pdfResult.success) {
-      console.log('✅ PDF file created');
-    } else {
-      console.log('⚠️ PDF creation failed:', pdfResult.error);
-    }
-
-    console.log('==========================================');
-    console.log('✅ Analysis complete!');
-    console.log('==========================================');
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      },
-      body: JSON.stringify({
-        proposal_text: proposalText,
-        zones: aiResult.zones,
-        analysis_id: analysisId
-      })
-    };
-  } catch (error) {
-    console.error('❌ Error in analyze function:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({ 
-        error: `Internal server error: ${error.message}` 
-      })
-    };
-  }
 };
+
+// Helper: Scrape website
+async function scrapeWebsite(url) {
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; AdlookBot/1.0)'
+            }
+        });
+        const html = await response.text();
+        const $ = cheerio.load(html);
+        
+        // Find emails
+        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+        const bodyText = $('body').text();
+        const foundEmails = bodyText.match(emailRegex) || [];
+        
+        // Also check mailto links
+        $('a[href^="mailto:"]').each((i, el) => {
+            const email = $(el).attr('href').replace('mailto:', '').split('?')[0];
+            foundEmails.push(email);
+        });
+        
+        const emails = [...new Set(foundEmails)].filter(e => e && e.includes('@'));
+        
+        // Find company name
+        let companyName = $('meta[property="og:site_name"]').attr('content') ||
+                         $('meta[name="author"]').attr('content');
+        
+        if (!companyName) {
+            const titleText = $('title').text();
+            companyName = titleText.split('|')[0].split('-')[0].trim();
+        }
+        
+        // Try to find legal entity in footer
+        const footerText = $('footer').text();
+        const legalEntityMatch = footerText.match(/(ООО|ИП|АО|ЗАО|ПАО)\s+["«]?([^"»\n]{3,50})["»]?/);
+        if (legalEntityMatch && !companyName) {
+            companyName = legalEntityMatch[0];
+        }
+        
+        return {
+            emails,
+            companyName,
+            title: $('title').text(),
+            description: $('meta[name="description"]').attr('content')
+        };
+        
+    } catch (error) {
+        console.error('Scraping error:', error);
+        return {
+            emails: [],
+            companyName: null,
+            title: null,
+            description: null
+        };
+    }
+}
+
+// Helper: Research owner
+async function researchOwner(companyName, url, openai) {
+    if (!companyName) {
+        return 'Company information not found';
+    }
+    
+    try {
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{
+                role: 'user',
+                content: `Find brief information about company "${companyName}" (website: ${url}).
+
+Using publicly available information, provide:
+- Full company name and legal form
+- Main business activity
+- Any notable achievements
+
+Keep it brief (2-3 sentences). If no info found, say so honestly.
+
+Respond in Russian if company is Russian, in English otherwise.`
+            }],
+            max_tokens: 400
+        });
+        
+        return completion.choices[0].message.content;
+        
+    } catch (error) {
+        console.error('Research error:', error);
+        return 'Failed to research company';
+    }
+}
+
+// Helper: Generate proposal
+async function generateProposal(data) {
+    const { url, zones, language, companyName, _emails, ownerInfo, openai } = data;
+    
+    const availableZones = zones.filter(z => z.available);
+    
+    if (availableZones.length === 0) {
+        return language === 'en' ?
+            'No available advertising spaces found on this website.' :
+            'На данном сайте не найдено свободных рекламных мест.';
+    }
+    
+    const zonesText = availableZones.map((z, i) => 
+        `${i + 1}. ${z.name} — ${z.description}`
+    ).join('\n');
+    
+    const isEnglish = language === 'en';
+    
+    const prompt = isEnglish ?
+        `Write a professional advertising proposal email in English.
+
+Website: ${url}
+Company: ${companyName || 'Website owner'}
+Background: ${ownerInfo}
+
+Available advertising zones:
+${zonesText}
+
+Structure:
+1. Personalized greeting
+2. Compliment about their website
+3. Brief about Adlook (Russian SSP platform founded in 2018)
+4. List advertising opportunities with descriptions
+5. Value proposition (revenue potential, formats, analytics)
+6. Call to action
+
+Professional tone. No asterisks (*). Full email text in English.` :
+        `Напиши персонализированное коммерческое предложение на русском языке.
+
+Сайт: ${url}
+Компания: ${companyName || 'Владелец сайта'}
+Справка: ${ownerInfo}
+
+Доступные рекламные места:
+${zonesText}
+
+Структура письма:
+1. Персонализированное приветствие
+2. Конкретный комплимент про их сайт/контент
+3. Кратко про Adlook (российская SSP-платформа, основана в 2018)
+4. Перечисление рекламных возможностей с описаниями
+5. Предложение ценности (потенциальный доход, форматы, аналитика)
+6. Призыв к действию
+
+Профессиональный тон. БЕЗ звёздочек (*). Полный текст письма на русском.`;
+    
+    try {
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 1500,
+            temperature: 0.7
+        });
+        
+        return completion.choices[0].message.content;
+        
+    } catch (error) {
+        console.error('Proposal generation error:', error);
+        return 'Failed to generate proposal';
+    }
+}

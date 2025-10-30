@@ -4,6 +4,7 @@
 [functions]
   # Set function timeout to 26 seconds (max for most Netlify tiers)
   node_bundler = "esbuild"
+  external_node_modules = ["@sparticuz/chromium"]
   
 [[redirects]]
   from = "/*"

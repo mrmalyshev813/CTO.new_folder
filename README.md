@@ -1,14 +1,30 @@
 # Ad Placement Analyzer
 
-A web service that analyzes websites for ad placement opportunities using GPT-4o-mini. This tool helps identify optimal locations for advertisements by analyzing website structure, content, and user engagement patterns.
+A web service that analyzes websites for ad placement opportunities using OpenAI Vision (GPT-4o). This tool helps identify optimal locations for advertisements by analyzing website screenshots, finding contact information, researching companies, and generating personalized proposals.
+
+## 🚀 Latest: Complete Ad Parser
+
+**NEW!** Full-featured ad parser with:
+- ✅ Screenshot capture via Playwright + Chromium
+- ✅ Visual analysis using OpenAI Vision (GPT-4o)
+- ✅ Email and contact extraction
+- ✅ Company research and background info
+- ✅ Personalized proposal generation
+- ✅ Automatic language detection (Russian/English)
+
+📚 **See [README_COMPLETE_PARSER.md](./README_COMPLETE_PARSER.md) for complete documentation**
+
+🧪 **See [TESTING_COMPLETE_PARSER.md](./TESTING_COMPLETE_PARSER.md) for testing guide**
 
 ## Features
 
-- Web scraping and analysis using Puppeteer
-- AI-powered recommendations using OpenAI GPT-4o-mini
+- Screenshot capture using Puppeteer + Chromium
+- Visual AI analysis using OpenAI Vision (GPT-4o)
+- Email and contact extraction via web scraping
+- Company research using AI
+- Personalized proposal generation in detected language
 - Serverless architecture with Netlify Functions
-- Simple web-based frontend interface
-- Report generation in multiple formats (DOCX, PDF)
+- Modern web-based frontend interface
 
 ## Prerequisites
 

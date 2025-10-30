@@ -516,129 +516,37 @@
         const searchButton = document.getElementById('searchButton');
         const results = document.getElementById('results');
         
-        // Get screenshot using backend Puppeteer
-        async function getScreenshot(url) {
+        // Analyze website using backend function
+        async function analyzeWebsite(url) {
             try {
                 let normalizedUrl = url.trim();
                 if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
                     normalizedUrl = 'https://' + normalizedUrl;
                 }
                 
-                console.log('📸 Getting screenshot via backend...');
+                console.log('🔍 Starting analysis for:', normalizedUrl);
                 
-                // Call backend to get screenshot
                 const response = await fetch('/.netlify/functions/analyze', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        url: normalizedUrl,
-                        action: 'screenshot'
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to get screenshot from backend');
-                }
-                
-                const data = await response.json();
-                
-                if (!data.screenshot) {
-                    throw new Error('No screenshot returned from backend');
-                }
-                
-                console.log('✅ Screenshot received from backend');
-                return {
-                    base64: data.screenshot,
-                    contentType: data.contentType || 'image/jpeg'
-                };
-            } catch (error) {
-                console.error('❌ Screenshot error:', error);
-                throw new Error('Не удалось получить скриншот сайта');
-            }
-        }
-        
-        // Analyze website using OpenAI API directly with user's key
-        async function analyzeWebsite(url) {
-            const apiKey = getApiKey();
-            
-            if (!apiKey) {
-                throw new Error('Введите OpenAI API ключ');
-            }
-            
-            if (!apiKey.startsWith('sk-')) {
-                throw new Error('API ключ должен начинаться с "sk-"');
-            }
-            
-            console.log('🔑 Using API key from localStorage');
-            
-            try {
-                let normalizedUrl = url.trim();
-                if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-                    normalizedUrl = 'https://' + normalizedUrl;
-                }
-                
-                // Get screenshot from backend using Puppeteer
-                const { base64: screenshotBase64, contentType } = await getScreenshot(normalizedUrl);
-                
-                console.log('🤖 Analyzing with GPT-4o-mini...');
-                
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: 'gpt-4o-mini',
-                        messages: [{
-                            role: 'user',
-                            content: [
-                                {
-                                    type: 'text',
-                                    text: `Проанализируй скриншот сайта ${normalizedUrl} и определи рекламные возможности.
-                            
-Найди все рекламные зоны и для каждой укажи:
-- name (Header/Sidebar/Footer/Content/Popup)
-- occupied (true/false) - есть ли уже реклама
-- size (728x90, 300x250, 160x600 и т.д.)
-- priority (high/medium/low)
-- description (краткое описание позиции)
-
-Верни JSON:
-{
-  "zones": [
-    {"name": "Header", "occupied": false, "size": "728x90", "priority": "high", "description": "..."}
-  ]
-}`
-                                },
-                                {
-                                    type: 'image_url',
-                                    image_url: {
-                                        url: `data:${contentType};base64,${screenshotBase64}`,
-                                        detail: 'low'
-                                    }
-                                }
-                            ]
-                        }],
-                        response_format: { type: 'json_object' },
-                        max_tokens: 1500
-                    })
+                    body: JSON.stringify({ url: normalizedUrl })
                 });
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    
-                    if (response.status === 401) {
-                        throw new Error('Неверный API ключ');
-                    }
-                    
-                    throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
                 }
                 
                 const data = await response.json();
-                return JSON.parse(data.choices[0].message.content);
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+                
+                console.log('✅ Analysis complete');
+                return data;
                 
             } catch (error) {
                 console.error('❌ Analysis error:', error);
@@ -648,23 +556,99 @@
         
         // Display results in the UI
         function displayResults(result) {
-            let zonesHtml = '<h3 style="margin-top: 0; color: #0066ff;">✅ Найденные рекламные зоны:</h3>';
+            let html = '';
+            
+            // Screenshot
+            if (result.screenshot) {
+                html += `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: #0066ff;">📸 Скриншот сайта:</h3>
+                        <img src="${result.screenshot}" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;" />
+                    </div>
+                `;
+            }
+            
+            // Language and Company Info
+            if (result.language || result.companyName) {
+                html += '<div style="margin-bottom: 20px; padding: 15px; background: #0a0a0a; border-radius: 8px;">';
+                if (result.language) {
+                    html += `<p style="margin: 5px 0;"><strong>🌐 Язык:</strong> ${result.language === 'ru' ? 'Русский' : 'English'}</p>`;
+                }
+                if (result.companyName) {
+                    html += `<p style="margin: 5px 0;"><strong>🏢 Компания:</strong> ${result.companyName}</p>`;
+                }
+                if (result.ownerInfo && result.ownerInfo !== 'Company information not found') {
+                    html += `<p style="margin: 5px 0;"><strong>ℹ️ Информация:</strong> ${result.ownerInfo}</p>`;
+                }
+                html += '</div>';
+            }
+            
+            // Emails
+            if (result.emails && result.emails.length > 0) {
+                html += `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: #0066ff;">📧 Найденные контакты:</h3>
+                        <ul style="margin: 0; padding-left: 20px;">
+                            ${result.emails.map(email => `<li style="color: #8bc34a;">${email}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            // Zones
+            html += '<h3 style="margin: 0 0 10px 0; color: #0066ff;">✅ Рекламные зоны:</h3>';
             if (result.zones && result.zones.length > 0) {
-                zonesHtml += '<ul style="margin: 10px 0; padding-left: 20px;">';
+                html += '<ul style="margin: 0 0 20px 0; padding-left: 20px;">';
                 result.zones.forEach(zone => {
                     const priorityColor = zone.priority === 'high' ? '#8bc34a' : 
                                          zone.priority === 'medium' ? '#ffab40' : '#888';
-                    const zoneName = zone.name || zone.zone;
-                    const description = zone.description ? `<br><small style="color: #999;">${zone.description}</small>` : '';
-                    zonesHtml += `<li style="margin: 10px 0;"><strong>${zoneName}</strong> - <span style="color: ${priorityColor}">${zone.priority} priority</span>${description}</li>`;
+                    const availableText = zone.available ? '✅ Доступна' : '❌ Занята';
+                    const availableColor = zone.available ? '#8bc34a' : '#ff4444';
+                    html += `
+                        <li style="margin: 10px 0;">
+                            <strong>${zone.name}</strong> 
+                            <span style="color: ${priorityColor};">[${zone.priority}]</span> 
+                            <span style="color: ${availableColor};">${availableText}</span>
+                            ${zone.size ? ` - ${zone.size}` : ''}
+                            ${zone.description ? `<br><small style="color: #999;">${zone.description}</small>` : ''}
+                        </li>
+                    `;
                 });
-                zonesHtml += '</ul>';
+                html += '</ul>';
             } else {
-                zonesHtml += '<p style="color: #888;">Зоны не найдены</p>';
+                html += '<p style="color: #888; margin-bottom: 20px;">Зоны не найдены</p>';
             }
             
-            results.innerHTML = zonesHtml;
+            // Proposal
+            if (result.proposal) {
+                html += `
+                    <div style="margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="margin: 0; color: #0066ff;">✍️ Коммерческое предложение:</h3>
+                            <button onclick="copyProposal()" style="padding: 8px 16px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                📋 Копировать
+                            </button>
+                        </div>
+                        <div id="proposalText" style="white-space: pre-wrap; background: #0a0a0a; padding: 15px; border-radius: 8px; border: 1px solid #333; font-size: 14px; line-height: 1.6; max-height: 400px; overflow-y: auto;">
+                            ${result.proposal}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            results.innerHTML = html;
         }
+        
+        // Copy proposal to clipboard
+        window.copyProposal = function() {
+            const proposalText = document.getElementById('proposalText').innerText;
+            navigator.clipboard.writeText(proposalText).then(() => {
+                alert('✅ Предложение скопировано в буфер обмена!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('❌ Не удалось скопировать');
+            });
+        };
         
         // Handle search button click
         async function handleSearch() {
@@ -675,21 +659,33 @@
                 return;
             }
             
-            const apiKey = getApiKey();
-            if (!apiKey) {
-                alert('Введите OpenAI API ключ');
-                openApiModal();
-                return;
-            }
-            
             searchButton.disabled = true;
             searchButton.textContent = 'Анализирую...';
-            results.innerHTML = '<p style="color: #0066ff;">⏳ Анализирую сайт...</p>';
+            results.innerHTML = `
+                <div style="color: #0066ff; text-align: center; padding: 40px;">
+                    <p style="font-size: 18px; margin-bottom: 15px;">⏳ Анализирую сайт...</p>
+                    <p style="color: #888; font-size: 14px;">Это может занять до минуты</p>
+                    <div style="margin-top: 20px;">
+                        <span style="display: inline-block; animation: pulse 2s infinite;">🤖</span>
+                    </div>
+                </div>
+            `;
             results.classList.add('visible');
+            
+            const startTime = Date.now();
             
             try {
                 const result = await analyzeWebsite(url);
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                console.log(`✅ Analysis completed in ${duration}s`);
                 displayResults(result);
+                
+                // Add execution time at the bottom
+                const timeInfo = document.createElement('div');
+                timeInfo.style.cssText = 'margin-top: 20px; padding: 10px; background: #0a0a0a; border-radius: 6px; text-align: center; color: #888; font-size: 13px;';
+                timeInfo.textContent = `⏱️ Время выполнения: ${duration} секунд`;
+                results.appendChild(timeInfo);
+                
             } catch (error) {
                 results.innerHTML = `
                     <div style="color: #ff4444; padding: 20px; background: #1a1a1a; border-radius: 8px; border: 1px solid #ff4444;">
