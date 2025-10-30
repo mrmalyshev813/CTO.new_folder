@@ -58,11 +58,16 @@ exports.handler = async (event) => {
         
         // STEP 1: Get screenshot
         console.log('\n📸 STEP 1: Getting screenshot...');
+        const screenshotController = new AbortController();
+        const screenshotTimeout = setTimeout(() => screenshotController.abort(), 20000);
+        
         const screenshotResponse = await fetch(`${process.env.URL}/.netlify/functions/screenshot`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
+            body: JSON.stringify({ url }),
+            signal: screenshotController.signal
         });
+        clearTimeout(screenshotTimeout);
         
         if (!screenshotResponse.ok) {
             throw new Error('Failed to get screenshot');
@@ -177,15 +182,24 @@ Return JSON:
         console.error('Error:', error.message);
         console.error('Stack:', error.stack);
         
+        // Check if it's a timeout error
+        let errorMessage = error.message;
+        let statusCode = 500;
+        
+        if (error.name === 'AbortError' || error.message.includes('abort')) {
+            errorMessage = 'Request timeout: The website took too long to respond. Please try again or check if the website is accessible.';
+            statusCode = 504;
+        }
+        
         return {
-            statusCode: 500,
+            statusCode: statusCode,
             headers: { 
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
             body: JSON.stringify({
                 success: false,
-                error: error.message
+                error: errorMessage
             })
         };
     }
@@ -194,11 +208,17 @@ Return JSON:
 // Helper: Scrape website
 async function scrapeWebsite(url) {
     try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (compatible; AdlookBot/1.0)'
-            }
+            },
+            signal: controller.signal
         });
+        clearTimeout(timeout);
+        
         const html = await response.text();
         const $ = cheerio.load(html);
         
@@ -239,7 +259,10 @@ async function scrapeWebsite(url) {
         };
         
     } catch (error) {
-        console.error('Scraping error:', error);
+        console.error('Scraping error:', error.message);
+        if (error.name === 'AbortError') {
+            console.log('⚠️ Scraping timed out after 10 seconds');
+        }
         return {
             emails: [],
             companyName: null,

@@ -34,10 +34,13 @@ exports.handler = async (event) => {
         // Navigate
         console.log('🌐 Navigating to page...');
         await page.goto(url, { 
-            waitUntil: 'networkidle0',
-            timeout: 30000 
+            waitUntil: 'domcontentloaded',
+            timeout: 15000 
         });
         console.log('✅ Page loaded');
+        
+        // Wait a bit for dynamic content to render
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Capture screenshot
         console.log('📸 Capturing screenshot...');
