@@ -593,7 +593,10 @@
                 const response = await fetch('/.netlify/functions/analyze', {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({ url: normalizedUrl })
+                    body: JSON.stringify({
+                        url: normalizedUrl,
+                        apiKey
+                    })
                 });
                 
                 const data = await response.json().catch(() => ({}));
