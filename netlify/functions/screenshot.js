@@ -39,12 +39,29 @@ exports.handler = async (event) => {
     let browser;
     try {
         const body = JSON.parse(event.body || '{}');
-        console.log('📥 Input:', JSON.stringify(body, null, 2));
+        console.log('📥 Request body:', JSON.stringify(body, null, 2));
         
-        const { url } = body;
+        const headers = event.headers || {};
+        let headerApiKey;
+        for (const name in headers) {
+            if (typeof name === 'string' && name.toLowerCase() === 'x-openai-api-key') {
+                headerApiKey = headers[name];
+                break;
+            }
+        }
+        
+        const { url, apiKey: bodyApiKey } = body;
         if (!url) {
             throw new Error("URL is required");
         }
+
+        const requestApiKey = bodyApiKey || headerApiKey;
+        const OPENAI_KEY = requestApiKey || process.env.OPENAI_API_KEY;
+
+        console.log('🔑 API Key from request body:', bodyApiKey ? 'YES' : 'NO');
+        console.log('🔑 API Key from header:', headerApiKey ? 'YES' : 'NO');
+        console.log('🔑 API Key from env:', process.env.OPENAI_API_KEY ? 'YES' : 'NO');
+        console.log('🔑 Using key:', OPENAI_KEY ? 'YES' : 'NO');
 
         console.log('🚀 Launching browser...');
         browser = await puppeteer.launch({

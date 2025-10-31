@@ -14,30 +14,56 @@ exports.handler = async (event) => {
 
     try {
         const body = JSON.parse(event.body || '{}');
-        console.log('📥 Input:', JSON.stringify(body, null, 2));
+        console.log('📥 Request body:', JSON.stringify(body, null, 2));
 
-        const { url } = body;
+        const headers = event.headers || {};
+        let headerApiKey;
+        for (const name in headers) {
+            if (typeof name === 'string' && name.toLowerCase() === 'x-openai-api-key') {
+                headerApiKey = headers[name];
+                break;
+            }
+        }
+
+        const { url, apiKey: bodyApiKey } = body;
         if (!url) {
             throw new Error("URL is required");
         }
 
-        console.log('Checking OpenAI API key...');
-        console.log('Key present:', !!process.env.OPENAI_API_KEY);
-        console.log('Key length:', process.env.OPENAI_API_KEY?.length);
-        console.log('Key prefix:', process.env.OPENAI_API_KEY?.substring(0, 10) + '...');
+        const requestApiKey = bodyApiKey || headerApiKey;
+        const OPENAI_KEY = requestApiKey || process.env.OPENAI_API_KEY;
 
-        if (!process.env.OPENAI_API_KEY) {
-            throw new Error('OPENAI_API_KEY not set');
+        console.log('Checking OpenAI API key...');
+        console.log('🔑 API Key from request body:', bodyApiKey ? 'YES' : 'NO');
+        console.log('🔑 API Key from header:', headerApiKey ? 'YES' : 'NO');
+        console.log('🔑 API Key from env:', process.env.OPENAI_API_KEY ? 'YES' : 'NO');
+        console.log('🔑 Using key:', OPENAI_KEY ? 'YES' : 'NO');
+        console.log('Key present:', !!OPENAI_KEY);
+        console.log('Key length:', OPENAI_KEY?.length);
+        console.log('Key prefix:', OPENAI_KEY?.substring(0, 10) + '...');
+
+        if (!OPENAI_KEY) {
+            console.log('❌ OPENAI_API_KEY not provided');
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    error: 'OPENAI_API_KEY not set',
+                    message: 'Введите API ключ на странице'
+                })
+            };
         }
 
         const openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
+            apiKey: OPENAI_KEY
         });
 
         console.log('📸 Getting screenshot...');
         const screenshotResponse = await fetch(`${process.env.URL}/.netlify/functions/screenshot`, {
             method: 'POST',
-            body: JSON.stringify({ url })
+            body: JSON.stringify({
+                url,
+                apiKey: OPENAI_KEY
+            })
         });
         if (!screenshotResponse.ok) {
             const errorText = await screenshotResponse.text();
