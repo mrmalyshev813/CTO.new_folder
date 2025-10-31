@@ -1,5 +1,45 @@
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
+const sharp = require('sharp');
+
+/**
+ * Optimize screenshot for Vision API
+ * Compress if size exceeds maxSizeMB limit
+ */
+async function optimizeScreenshotForVision(screenshot, maxSizeMB = 5) {
+    const initialSizeKB = (screenshot.length / 1024).toFixed(2);
+    const initialSizeMB = screenshot.length / (1024 * 1024);
+    
+    console.log(`📊 Исходный размер скриншота: ${initialSizeKB} KB (${initialSizeMB.toFixed(2)} MB)`);
+    
+    if (initialSizeMB <= maxSizeMB) {
+        console.log(`✅ Размер в пределах лимита (${maxSizeMB} MB), сжатие не требуется`);
+        return screenshot;
+    }
+    
+    console.log(`⚙️ Скриншот > ${maxSizeMB}MB, применяем дополнительное сжатие...`);
+    
+    const targetQuality = Math.max(50, Math.floor(70 * (maxSizeMB / initialSizeMB)));
+    
+    const optimized = await sharp(screenshot)
+        .resize(1280, 1024, {
+            fit: 'inside',
+            withoutEnlargement: true
+        })
+        .jpeg({
+            quality: targetQuality,
+            progressive: true,
+            mozjpeg: true
+        })
+        .toBuffer();
+    
+    const finalSizeKB = (optimized.length / 1024).toFixed(2);
+    const finalSizeMB = optimized.length / (1024 * 1024);
+    
+    console.log(`✅ Сжато до: ${finalSizeKB} KB (${finalSizeMB.toFixed(2)} MB, качество: ${targetQuality}%)`);
+    
+    return optimized;
+}
 
 /**
  * Load page with retry logic and detailed error reporting
@@ -150,17 +190,22 @@ exports.handler = async (event) => {
         const screenshotStart = Date.now();
         
         const screenshot = await page.screenshot({
-            fullPage: true,
-            type: 'png'
+            type: 'jpeg',
+            quality: 80,
+            fullPage: false
         });
         
         performanceMetrics.screenshot = Date.now() - screenshotStart;
         console.log(`✅ Screenshot captured за ${performanceMetrics.screenshot}ms`);
         
+        // Optimize screenshot for Vision API
+        console.log('🔧 Optimizing screenshot for Vision API...');
+        const optimizedScreenshot = await optimizeScreenshotForVision(screenshot);
+        
         await browser.close();
         
         // Return base64
-        const base64 = screenshot.toString('base64');
+        const base64 = optimizedScreenshot.toString('base64');
         
         performanceMetrics.totalTime = Date.now() - performanceMetrics.startTime;
         
@@ -178,7 +223,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
                 success: true,
-                screenshot: `data:image/png;base64,${base64}`,
+                screenshot: `data:image/jpeg;base64,${base64}`,
                 metadata: {
                     url: url,
                     attempts: result.attempts,
