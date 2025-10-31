@@ -1,109 +1,205 @@
-const { OpenAI } = require('openai');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 
 exports.handler = async (event) => {
-    console.log('\n===========================================');
-    console.log('🔍 FUNCTION START:', new Date().toISOString());
-    console.log('Function name:', event.rawUrl);
-    console.log('===========================================\n');
+    console.log('\n========================================');
+    console.log('🤖 ANALYZE START');
+    console.log('========================================\n');
     
-    console.log('\n🔧 ENVIRONMENT CHECK:');
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'SET ✅' : 'MISSING ❌');
-    console.log('URL:', process.env.URL);
-    console.log('\n');
-
-    try {
-        const body = JSON.parse(event.body || '{}');
-        console.log('📥 Input:', JSON.stringify(body, null, 2));
-
-        const { url } = body;
-        if (!url) {
-            throw new Error("URL is required");
-        }
-
-        console.log('Checking OpenAI API key...');
-        console.log('Key present:', !!process.env.OPENAI_API_KEY);
-        console.log('Key length:', process.env.OPENAI_API_KEY?.length);
-        console.log('Key prefix:', process.env.OPENAI_API_KEY?.substring(0, 10) + '...');
-
-        if (!process.env.OPENAI_API_KEY) {
-            throw new Error('OPENAI_API_KEY not set');
-        }
-
-        const openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
-
-        console.log('📸 Getting screenshot...');
-        const screenshotResponse = await fetch(`${process.env.URL}/.netlify/functions/screenshot`, {
-            method: 'POST',
-            body: JSON.stringify({ url })
-        });
-        if (!screenshotResponse.ok) {
-            const errorText = await screenshotResponse.text();
-            throw new Error(`Screenshot service failed with status ${screenshotResponse.status}: ${errorText}`);
-        }
-        const screenshotData = await screenshotResponse.json();
-        if (!screenshotData.success) {
-            throw new Error(`Screenshot failed: ${screenshotData.error}`);
-        }
-        console.log('✅ Screenshot obtained');
-        
-        console.log('🤖 Analyzing with OpenAI Vision...');
-        const visionCompletion = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [{
-                role: 'user',
-                content: [
-                    {
-                        type: 'text',
-                        text: `Analyze this screenshot of ${url} and return a JSON object with "zones" and "language".`
-                    },
-                    {
-                        type: 'image_url',
-                        image_url: {
-                            url: screenshotData.screenshot,
-                            detail: 'high'
-                        }
-                    }
-                ]
-            }],
-            response_format: { type: 'json_object' },
-            max_tokens: 2000
-        });
-        
-        const analysis = JSON.parse(visionCompletion.choices[0].message.content);
-        console.log('✅ Vision analysis complete');
-
-        const result = {
-            success: true,
-            analysis: analysis
+    const { url, apiKey } = JSON.parse(event.body || '{}');
+    
+    // Валидация
+    if (!url) {
+        return {
+            statusCode: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ success: false, error: 'URL required' })
         };
+    }
+    
+    if (!apiKey) {
+        return {
+            statusCode: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ success: false, error: 'API key required' })
+        };
+    }
+    
+    console.log('URL:', url);
+    console.log('API Key:', apiKey.substring(0, 10) + '...');
+    
+    let browser;
+    
+    try {
+        // ШАГ 1: Скриншот
+        console.log('\n📸 Step 1: Taking screenshot...');
         
-        console.log('\n===========================================');
-        console.log('✅ FUNCTION SUCCESS');
-        console.log('===========================================\n');
+        browser = await puppeteer.launch({
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless
+        });
+        
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        
+        await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000
+        });
+        
+        await page.waitForTimeout(2000);
+        
+        const screenshot = await page.screenshot({
+            type: 'jpeg',
+            quality: 75,
+            fullPage: false
+        });
+        
+        await browser.close();
+        
+        console.log('✅ Screenshot taken:', (screenshot.length / 1024).toFixed(2), 'KB');
+        
+        const base64 = screenshot.toString('base64');
+        const screenshotDataUrl = `data:image/jpeg;base64,${base64}`;
+        
+        // ШАГ 2: Анализ через OpenAI
+        console.log('\n🤖 Step 2: Analyzing with OpenAI...');
+        
+        const analysisRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [{
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Проанализируй скриншот сайта ${url} и найди места для рекламы.
+
+Определи зоны:
+- Header (шапка)
+- Sidebar (боковая панель)
+- Content (контент)
+- Footer (подвал)
+
+Для каждой зоны:
+{
+  "name": "название",
+  "available": true/false,
+  "size": "размер баннера",
+  "priority": "high/medium/low",
+  "description": "описание"
+}
+
+Определи язык сайта (ru/en).
+
+Верни JSON:
+{
+  "zones": [...],
+  "language": "ru"
+}`
+                        },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: screenshotDataUrl,
+                                detail: 'low'
+                            }
+                        }
+                    ]
+                }],
+                response_format: { type: 'json_object' },
+                max_tokens: 2000
+            })
+        });
+        
+        if (!analysisRes.ok) {
+            const error = await analysisRes.json();
+            throw new Error(`OpenAI Vision: ${error.error?.message || 'Unknown error'}`);
+        }
+        
+        const analysisData = await analysisRes.json();
+        const analysis = JSON.parse(analysisData.choices[0].message.content);
+        
+        console.log('✅ Analysis complete');
+        console.log('Zones found:', analysis.zones.length);
+        
+        // ШАГ 3: Генерация предложения
+        console.log('\n✍️ Step 3: Generating proposal...');
+        
+        const availableZones = analysis.zones.filter(z => z.available);
+        
+        let proposal = 'На данном сайте не найдено свободных мест.';
+        
+        if (availableZones.length > 0) {
+            const zonesText = availableZones.map(z => 
+                `${z.name} — ${z.description}`
+            ).join('\n');
+            
+            const proposalPrompt = analysis.language === 'en' ?
+                `Write professional email for ${url}.\n\nZones:\n${zonesText}` :
+                `Напиши коммерческое предложение для ${url}.\n\nМеста:\n${zonesText}\n\nПро Adlook.`;
+            
+            const proposalRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [{ role: 'user', content: proposalPrompt }],
+                    max_tokens: 1500
+                })
+            });
+            
+            const proposalData = await proposalRes.json();
+            proposal = proposalData.choices[0].message.content;
+        }
+        
+        console.log('✅ Proposal generated');
+        
+        // Вернуть результат
+        console.log('\n✅ === SUCCESS ===\n');
         
         return {
             statusCode: 200,
-            body: JSON.stringify(result)
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+                success: true,
+                screenshot: base64,
+                zones: analysis.zones,
+                language: analysis.language,
+                proposal: proposal
+            })
         };
+        
     } catch (error) {
-        console.error('\n===========================================');
-        console.error('❌ FUNCTION FAILED');
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-        console.error('===========================================\n');
+        console.error('\n❌ === ERROR ===');
+        console.error('Message:', error.message);
+        console.error('Stack:', error.stack);
+        
+        if (browser) await browser.close();
         
         return {
             statusCode: 500,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
             body: JSON.stringify({
-                error: error.message,
-                details: {
-                    name: error.name,
-                    stack: error.stack
-                }
+                success: false,
+                error: error.message
             })
         };
     }

@@ -3,902 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NLABTEAM Smart Parser</title>
-    <script type="importmap">
-      {
-        "imports": {
-          "@splinetool/runtime": "https://unpkg.com/@splinetool/runtime@1.9.42/build/runtime.js"
-        }
-      }
-    </script>
+    <title>NLAB Smart Parser</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #000;
-            color: #fff;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 20px;
-        }
-        
-        .container {
-            width: 100%;
-            max-width: 1400px;
-            background: rgba(0, 0, 0, 0.96);
-            border: 1px solid #333;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        }
-        
-        .content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            min-height: 600px;
-        }
-        
-        .left-panel {
-            padding: 60px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            position: relative;
-            z-index: 10;
+            background: #0a0a0a;
+            color: #fff;
         }
         
         h1 {
-            font-size: 3.5rem;
-            font-weight: 700;
-            background: linear-gradient(to bottom, #f5f5f5, #999);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 20px;
-            line-height: 1.2;
-        }
-        
-        .description {
-            color: #ccc;
-            font-size: 1.1rem;
-            line-height: 1.6;
-            margin-bottom: 30px;
-            max-width: 500px;
-        }
-        
-        .search-container {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .search-input {
-            flex: 1;
-            padding: 15px 20px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 16px;
-            outline: none;
-            transition: border 0.3s;
-        }
-        
-        .search-input:focus {
-            border-color: #0066ff;
-        }
-        
-        .search-button {
-            padding: 15px 30px;
-            background: #0066ff;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .search-button:hover {
-            background: #0052cc;
-        }
-        
-        .search-button:disabled {
-            background: #333;
-            cursor: not-allowed;
-        }
-        
-        .footer {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-        
-        .api-key-button {
-            padding: 12px 24px;
-            background: rgba(0, 102, 255, 0.1);
-            border: 1px solid #0066ff;
-            border-radius: 8px;
+            text-align: center;
             color: #0066ff;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
         
-        .api-key-button:hover {
-            background: rgba(0, 102, 255, 0.2);
-            transform: translateY(-2px);
-        }
-        
-        .api-key-button.connected {
-            background: rgba(0, 204, 102, 0.1);
-            border-color: #00cc66;
-            color: #00cc66;
-        }
-        
-        .api-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 999;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .api-modal.active {
-            display: flex;
-        }
-        
-        .api-modal-content {
+        .input-section {
             background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 12px;
             padding: 30px;
-            max-width: 500px;
-            width: 90%;
+            border-radius: 8px;
+            margin-bottom: 30px;
         }
         
-        .api-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .form-group {
             margin-bottom: 20px;
         }
         
-        .api-modal-header h3 {
-            margin: 0;
-            color: #fff;
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00ccff;
         }
         
-        .close-modal {
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .close-modal:hover {
-            color: #fff;
-        }
-        
-        #apiKeyInput {
+        input {
             width: 100%;
-            padding: 12px 15px;
+            padding: 12px;
             background: #0a0a0a;
             border: 1px solid #333;
-            border-radius: 8px;
+            border-radius: 4px;
             color: #fff;
-            font-size: 14px;
-            font-family: monospace;
-            outline: none;
-            transition: border 0.3s;
-            margin-bottom: 15px;
+            font-size: 16px;
         }
         
-        #apiKeyInput:focus {
-            border-color: #0066ff;
-        }
-        
-        #apiKeyInput::placeholder {
-            color: #666;
-        }
-        
-        .api-modal-footer {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-        }
-        
-        .modal-button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .modal-button.primary {
-            background: #0066ff;
-            color: white;
-        }
-        
-        .modal-button.primary:hover {
-            background: #0052cc;
-        }
-        
-        .modal-button.secondary {
-            background: #333;
-            color: #fff;
-        }
-        
-        .modal-button.secondary:hover {
-            background: #444;
-        }
-        
-        .api-info {
-            color: #888;
-            font-size: 0.85rem;
-            line-height: 1.5;
-            margin-bottom: 15px;
-        }
-        
-        .api-info a {
-            color: #0066ff;
-            text-decoration: none;
-        }
-        
-        .api-info a:hover {
-            text-decoration: underline;
-        }
-        
-        .right-panel {
-            position: relative;
-            min-height: 600px;
-            background: #0a0a0a;
-        }
-        
-        #spline-canvas {
+        button {
             width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
+            padding: 15px;
+            background: #0066ff;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+        }
+        
+        .progress {
+            text-align: center;
+            padding: 30px;
+            color: #00ccff;
+            display: none;
+        }
+        
+        .error {
+            background: #ff4444;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
         }
         
         .results {
-            margin-top: 30px;
-            padding: 20px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 8px;
             display: none;
+            margin-top: 30px;
         }
         
-        .results.visible {
-            display: block;
+        .screenshot {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
         
-        .loading {
-            color: #0066ff;
-            font-weight: 600;
+        .zone {
+            background: #1a1a1a;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #0066ff;
         }
         
-        @media (max-width: 968px) {
-            .content {
-                grid-template-columns: 1fr;
-            }
-            
-            .left-panel {
-                padding: 40px 30px;
-            }
-            
-            h1 {
-                font-size: 2.5rem;
-            }
-            
-            .right-panel {
-                min-height: 400px;
-            }
+        .proposal {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            line-height: 1.6;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="content">
-            <div class="left-panel">
-                <h1>NLABTEAM Smart Parser</h1>
-                <p class="description">
-                    Покажи роботу что искать и он все найдет...
-                </p>
-                
-                <!-- SEARCH INPUT -->
-                <div class="search-container">
-                    <input 
-                        type="text" 
-                        class="search-input" 
-                        id="searchInput"
-                        placeholder="Введите URL сайта..."
-                    >
-                    <button class="search-button" id="searchButton">Найти</button>
-                </div>
-                
-                <div class="results" id="results"></div>
-            </div>
-            
-            <div class="right-panel">
-                <canvas id="spline-canvas"></canvas>
-            </div>
+    <h1>🤖 NLAB Smart Parser</h1>
+    <p style="text-align: center; color: #666;">Покажи роботу что искать и он все найдет...</p>
+    
+    <div class="input-section">
+        <div class="form-group">
+            <label>🔑 OpenAI API ключ</label>
+            <input type="password" id="api-key" placeholder="sk-proj-..." />
         </div>
-    </div>
-    
-    <!-- API Key Modal -->
-    <div class="api-modal" id="apiModal">
-        <div class="api-modal-content">
-            <div class="api-modal-header">
-                <h3>Настройка OpenAI API</h3>
-                <button class="close-modal" id="closeModal">×</button>
-            </div>
-            
-            <div class="api-info">
-                Для работы необходим API ключ OpenAI. 
-                Получите его на <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>
-            </div>
-            
-            <input 
-                type="password" 
-                id="apiKeyInput"
-                placeholder="sk-proj-..."
-            />
-            
-            <div class="api-modal-footer">
-                <button class="modal-button secondary" id="cancelModal">Отмена</button>
-                <button class="modal-button primary" id="saveApiKey">Сохранить</button>
-            </div>
+        
+        <div class="form-group">
+            <label>🌐 URL сайта</label>
+            <input type="text" id="url" placeholder="https://nlabteam.com" value="https://nlabteam.com" />
         </div>
+        
+        <button id="btn">Найти</button>
     </div>
     
-    <!-- Footer with API Button -->
-    <div class="footer">
-        <button class="api-key-button" id="apiKeyButton">
-            <span id="apiKeyButtonText">🔌 Подключить API OpenAI</span>
-        </button>
+    <div class="progress" id="progress">⏳ Анализируем...</div>
+    <div class="error" id="error"></div>
+    
+    <div class="results" id="results">
+        <h2>📸 Скриншот</h2>
+        <img id="screenshot" class="screenshot" />
+        
+        <h2>🎯 Рекламные зоны</h2>
+        <div id="zones"></div>
+        
+        <h2>✍️ Предложение</h2>
+        <div class="proposal" id="proposal"></div>
     </div>
     
-    <script type="module">
-        import { Application } from '@splinetool/runtime';
-        
-        // Initialize Spline
-        const canvas = document.getElementById('spline-canvas');
-        const app = new Application(canvas);
-        
-        // Load the Spline scene
-        app.load('https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode')
-            .then(() => {
-                console.log('✅ Spline robot loaded successfully!');
-            })
-            .catch(error => {
-                console.error('❌ Error loading Spline:', error);
-            });
-        
-        // Constants for localStorage
-        const API_KEY_STORAGE_KEY = 'openai_api_key';
-        
-        // DOM elements
-        const apiModal = document.getElementById('apiModal');
-        const apiKeyButton = document.getElementById('apiKeyButton');
-        const apiKeyButtonText = document.getElementById('apiKeyButtonText');
-        const closeModal = document.getElementById('closeModal');
-        const cancelModal = document.getElementById('cancelModal');
-        const saveApiKeyBtn = document.getElementById('saveApiKey');
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        
-        // Initialize API key on load
-        document.addEventListener('DOMContentLoaded', () => {
-            initApiKey();
-            updateApiButtonState();
-            checkApiKeyOnStartup();
-        });
-        
-        // Load saved API key
-        function initApiKey() {
-            const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-            if (savedKey) {
-                apiKeyInput.value = savedKey;
-                console.log('✅ API key loaded from localStorage');
-            } else {
-                console.log('ℹ️ No API key found. Please configure your OpenAI API key.');
-            }
-        }
-        
-        // Check API key on startup and show modal if missing
-        function checkApiKeyOnStartup() {
-            const apiKey = getApiKey();
-            if (!apiKey || !apiKey.startsWith('sk-')) {
-                console.log('⚠️ API key not configured');
-                // Show a welcome message
-                setTimeout(() => {
-                    results.innerHTML = `
-                        <div style="padding: 30px; background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 102, 255, 0.05) 100%); border-radius: 8px; border: 1px solid rgba(0, 102, 255, 0.3);">
-                            <h3 style="margin: 0 0 15px 0; color: #0066ff;">👋 Добро пожаловать!</h3>
-                            <p style="margin: 0 0 15px 0; color: #ccc; line-height: 1.6;">
-                                Для начала работы необходимо настроить API ключ OpenAI. 
-                                Получите его на <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #0066ff; text-decoration: none;">platform.openai.com</a>
-                            </p>
-                            <button onclick="document.getElementById('apiKeyButton').click()" style="padding: 12px 24px; background: #0066ff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
-                                🔑 Настроить API ключ
-                            </button>
-                        </div>
-                    `;
-                    results.classList.add('visible');
-                }, 500);
-            }
-        }
-        
-        // Update API button state
-        function updateApiButtonState() {
-            const apiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-            if (apiKey && apiKey.startsWith('sk-')) {
-                apiKeyButton.classList.add('connected');
-                apiKeyButtonText.textContent = '✅ API Подключен';
-            } else {
-                apiKeyButton.classList.remove('connected');
-                apiKeyButtonText.textContent = '🔌 Подключить API OpenAI';
-            }
-        }
-        
-        function openApiModal() {
-            const savedKey = getApiKey();
-            if (savedKey) {
-                apiKeyInput.value = savedKey;
-            }
-            apiModal.classList.add('active');
-            setTimeout(() => {
-                apiKeyInput.focus();
-                apiKeyInput.select();
-            }, 0);
-        }
-        
-        // Open modal
-        apiKeyButton.addEventListener('click', () => {
-            openApiModal();
-        });
-        
-        // Close modal
-        function closeApiModal() {
-            apiModal.classList.remove('active');
-        }
-        
-        closeModal.addEventListener('click', closeApiModal);
-        cancelModal.addEventListener('click', closeApiModal);
-        
-        // Close modal on backdrop click
-        apiModal.addEventListener('click', (e) => {
-            if (e.target === apiModal) {
-                closeApiModal();
-            }
-        });
-        
-        // Save API key
-        saveApiKeyBtn.addEventListener('click', () => {
-            saveApiKey();
-        });
-        
-        // Save API key when pressing Enter
-        apiKeyInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                saveApiKey();
-            }
-        });
-        
-        // Save API key
-        function saveApiKey() {
-            const key = apiKeyInput.value.trim();
-            if (key) {
-                if (!key.startsWith('sk-')) {
-                    alert('API ключ должен начинаться с "sk-"');
-                    return;
-                }
-                localStorage.setItem(API_KEY_STORAGE_KEY, key);
-                console.log('✅ API key saved');
-                updateApiButtonState();
-                closeApiModal();
-            } else {
-                alert('Введите API ключ');
-            }
-        }
-        
-        // Get API key from localStorage
-        function getApiKey() {
-            return localStorage.getItem(API_KEY_STORAGE_KEY);
-        }
-        
-        // Search functionality
-        const searchInput = document.getElementById('searchInput');
-        const searchButton = document.getElementById('searchButton');
+    <script>
+        const btn = document.getElementById('btn');
+        const apiKeyInput = document.getElementById('api-key');
+        const urlInput = document.getElementById('url');
+        const progress = document.getElementById('progress');
+        const error = document.getElementById('error');
         const results = document.getElementById('results');
+        const screenshot = document.getElementById('screenshot');
+        const zones = document.getElementById('zones');
+        const proposal = document.getElementById('proposal');
         
-        function getFriendlyErrorMessage(message) {
-            if (!message) {
-                return 'Произошла неизвестная ошибка. Попробуйте снова.';
-            }
+        btn.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            const url = urlInput.value.trim();
             
-            const lower = message.toLowerCase();
-            
-            if (lower.includes('request timeout') || lower.includes('website check timeout')) {
-                return '⏱️ Сайт не ответил вовремя. Проверьте, доступен ли URL и попробуйте снова.';
-            }
-            
-            if (lower.includes('website unreachable') || lower.includes('dns lookup failed') || lower.includes('domain name')) {
-                return '🌐 Сайт недоступен. Убедитесь, что адрес указан верно и сайт работает.';
-            }
-            
-            if (lower.includes('failed to get screenshot')) {
-                return 'Не удалось получить скриншот сайта. Попробуйте ещё раз или проверьте доступность сайта.';
-            }
-            
-            return message;
-        }
-        
-        // Analyze website using backend function
-        async function analyzeWebsite(url) {
-            try {
-                let normalizedUrl = url.trim();
-                if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-                    normalizedUrl = 'https://' + normalizedUrl;
-                }
-                
-                // Get API key from localStorage
-                const apiKey = getApiKey();
-                if (!apiKey) {
-                    throw new Error('API ключ не настроен. Пожалуйста, нажмите "Подключить API OpenAI" в правом нижнем углу.');
-                }
-                
-                console.log('🔍 Starting analysis for:', normalizedUrl);
-                
-                const headers = {
-                    'Content-Type': 'application/json',
-                };
-                
-                // Add API key to headers if available
-                if (apiKey) {
-                    headers['X-OpenAI-API-Key'] = apiKey;
-                }
-                
-                const response = await fetch('/.netlify/functions/analyze', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ url: normalizedUrl })
-                });
-                
-                const data = await response.json().catch(() => ({}));
-                
-                if (!response.ok) {
-                    // Сервер вернул ошибку - сохраняем детали
-                    const error = new Error(data.error || `Server error: ${response.status}`);
-                    error.details = data.details;
-                    error.timestamp = data.timestamp;
-                    error.data = data; // Сохраняем весь объект данных
-                    console.error('❌ Server error:', error);
-                    console.error('Error details:', data);
-                    throw error;
-                }
-                
-                if (!data.success) {
-                    // Ответ успешный, но операция провалилась - сохраняем детали
-                    const error = new Error(data.error || 'Analysis failed');
-                    error.details = data.details;
-                    error.timestamp = data.timestamp;
-                    error.data = data;
-                    console.error('❌ Analysis failed:', error);
-                    console.error('Error details:', data);
-                    throw error;
-                }
-                
-                console.log('✅ Analysis complete');
-                return data;
-                
-            } catch (error) {
-                console.error('❌ Analysis error:', error);
-                throw error;
-            }
-        }
-        
-        // Display results in the UI
-        function displayResults(result) {
-            let html = '';
-            
-            // Screenshot
-            if (result.screenshot) {
-                html += `
-                    <div style="margin-bottom: 20px;">
-                        <h3 style="margin: 0 0 10px 0; color: #0066ff;">📸 Скриншот сайта:</h3>
-                        <img src="${result.screenshot}" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;" />
-                `;
-                
-                // Показать метаданные производительности если есть
-                if (result.metadata || result.screenshotMetadata) {
-                    const metadata = result.metadata || result.screenshotMetadata;
-                    html += `
-                        <details style="margin-top: 10px; cursor: pointer;">
-                            <summary style="color: #0066ff; font-size: 14px; font-weight: 600;">📊 Метрики загрузки</summary>
-                            <div style="margin-top: 10px; padding: 10px; background: #0a0a0a; border-radius: 4px; font-size: 13px;">
-                    `;
-                    
-                    if (metadata.attempts) {
-                        html += `<p style="margin: 5px 0;"><strong>🔢 Попыток загрузки:</strong> ${metadata.attempts}</p>`;
-                    }
-                    
-                    if (metadata.loadTime) {
-                        html += `<p style="margin: 5px 0;"><strong>⏱️ Время загрузки страницы:</strong> ${metadata.loadTime}ms</p>`;
-                    }
-                    
-                    if (metadata.blockedResources !== undefined) {
-                        html += `<p style="margin: 5px 0;"><strong>🚫 Заблокировано лишних ресурсов:</strong> ${metadata.blockedResources}</p>`;
-                    }
-                    
-                    if (metadata.performanceMetrics) {
-                        const pm = metadata.performanceMetrics;
-                        html += `<p style="margin: 10px 0 5px 0; color: #888;"><strong>Детали производительности:</strong></p>`;
-                        if (pm.browserLaunch) html += `<p style="margin: 5px 0; padding-left: 10px;">Browser: ${pm.browserLaunch}ms</p>`;
-                        if (pm.pageLoad) html += `<p style="margin: 5px 0; padding-left: 10px;">Page load: ${pm.pageLoad}ms</p>`;
-                        if (pm.screenshot) html += `<p style="margin: 5px 0; padding-left: 10px;">Screenshot: ${pm.screenshot}ms</p>`;
-                        if (pm.totalTime) html += `<p style="margin: 5px 0; padding-left: 10px; color: #0066ff;">Total: ${pm.totalTime}ms</p>`;
-                    }
-                    
-                    html += `</div></details>`;
-                }
-                
-                html += `</div>`;
-            }
-            
-            // Language and Company Info
-            if (result.language || result.companyName) {
-                html += '<div style="margin-bottom: 20px; padding: 15px; background: #0a0a0a; border-radius: 8px;">';
-                if (result.language) {
-                    html += `<p style="margin: 5px 0;"><strong>🌐 Язык:</strong> ${result.language === 'ru' ? 'Русский' : 'English'}</p>`;
-                }
-                if (result.companyName) {
-                    html += `<p style="margin: 5px 0;"><strong>🏢 Компания:</strong> ${result.companyName}</p>`;
-                }
-                if (result.ownerInfo && result.ownerInfo !== 'Company information not found') {
-                    html += `<p style="margin: 5px 0;"><strong>ℹ️ Информация:</strong> ${result.ownerInfo}</p>`;
-                }
-                html += '</div>';
-            }
-            
-            // Emails
-            if (result.emails && result.emails.length > 0) {
-                html += `
-                    <div style="margin-bottom: 20px;">
-                        <h3 style="margin: 0 0 10px 0; color: #0066ff;">📧 Найденные контакты:</h3>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            ${result.emails.map(email => `<li style="color: #8bc34a;">${email}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-            }
-            
-            // Zones
-            html += '<h3 style="margin: 0 0 10px 0; color: #0066ff;">✅ Рекламные зоны:</h3>';
-            if (result.zones && result.zones.length > 0) {
-                html += '<ul style="margin: 0 0 20px 0; padding-left: 20px;">';
-                result.zones.forEach(zone => {
-                    const priorityColor = zone.priority === 'high' ? '#8bc34a' : 
-                                         zone.priority === 'medium' ? '#ffab40' : '#888';
-                    const availableText = zone.available ? '✅ Доступна' : '❌ Занята';
-                    const availableColor = zone.available ? '#8bc34a' : '#ff4444';
-                    html += `
-                        <li style="margin: 10px 0;">
-                            <strong>${zone.name}</strong> 
-                            <span style="color: ${priorityColor};">[${zone.priority}]</span> 
-                            <span style="color: ${availableColor};">${availableText}</span>
-                            ${zone.size ? ` - ${zone.size}` : ''}
-                            ${zone.description ? `<br><small style="color: #999;">${zone.description}</small>` : ''}
-                        </li>
-                    `;
-                });
-                html += '</ul>';
-            } else {
-                html += '<p style="color: #888; margin-bottom: 20px;">Зоны не найдены</p>';
-            }
-            
-            // Proposal
-            if (result.proposal) {
-                html += `
-                    <div style="margin-top: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h3 style="margin: 0; color: #0066ff;">✍️ Коммерческое предложение:</h3>
-                            <button onclick="copyProposal()" style="padding: 8px 16px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                                📋 Копировать
-                            </button>
-                        </div>
-                        <div id="proposalText" style="white-space: pre-wrap; background: #0a0a0a; padding: 15px; border-radius: 8px; border: 1px solid #333; font-size: 14px; line-height: 1.6; max-height: 400px; overflow-y: auto;">
-                            ${result.proposal}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            results.innerHTML = html;
-        }
-        
-        // Copy proposal to clipboard
-        window.copyProposal = function() {
-            const proposalText = document.getElementById('proposalText').innerText;
-            navigator.clipboard.writeText(proposalText).then(() => {
-                alert('✅ Предложение скопировано в буфер обмена!');
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-                alert('❌ Не удалось скопировать');
-            });
-        };
-        
-        // Handle search button click
-        async function handleSearch() {
-            const url = searchInput.value.trim();
-            
-            if (!url) {
-                alert('Введите URL сайта');
+            if (!apiKey) {
+                error.textContent = '❌ Введите API ключ';
+                error.style.display = 'block';
                 return;
             }
             
-            searchButton.disabled = true;
-            searchButton.textContent = 'Анализирую...';
-            results.innerHTML = `
-                <div style="color: #0066ff; text-align: center; padding: 40px;">
-                    <p style="font-size: 18px; margin-bottom: 15px;">⏳ Анализирую сайт...</p>
-                    <p style="color: #888; font-size: 14px;">Это может занять до минуты</p>
-                    <div style="margin-top: 20px;">
-                        <span style="display: inline-block; animation: pulse 2s infinite;">🤖</span>
-                    </div>
-                </div>
-            `;
-            results.classList.add('visible');
+            if (!url) {
+                error.textContent = '❌ Введите URL';
+                error.style.display = 'block';
+                return;
+            }
             
-            const startTime = Date.now();
+            error.style.display = 'none';
+            results.style.display = 'none';
+            progress.style.display = 'block';
+            btn.disabled = true;
             
             try {
-                const result = await analyzeWebsite(url);
-                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-                console.log(`✅ Analysis completed in ${duration}s`);
-                displayResults(result);
+                const res = await fetch('/.netlify/functions/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, apiKey })
+                });
                 
-                // Add execution time at the bottom
-                const timeInfo = document.createElement('div');
-                timeInfo.style.cssText = 'margin-top: 20px; padding: 10px; background: #0a0a0a; border-radius: 6px; text-align: center; color: #888; font-size: 13px;';
-                timeInfo.textContent = `⏱️ Время выполнения: ${duration} секунд`;
-                results.appendChild(timeInfo);
+                const data = await res.json();
                 
-            } catch (error) {
-                const message = (error && error.message) ? error.message : 'Произошла неизвестная ошибка.';
-                const isApiKeyError = message.includes('API ключ') || message.includes('API key');
-                const friendlyMessage = getFriendlyErrorMessage(message);
-                const showTechnicalDetails = friendlyMessage !== message;
-                const primaryParagraphMargin = isApiKeyError || showTechnicalDetails ? '10px' : '0';
-                
-                // Пытаемся получить детали ошибки из data если это ответ от сервера
-                let errorDetails = null;
-                if (error.data) {
-                    errorDetails = error.data;
-                } else if (error.details) {
-                    errorDetails = error.details;
+                if (!data.success) {
+                    throw new Error(data.error);
                 }
                 
-                let errorHtml = `
-                    <div style="color: #ff4444; padding: 20px; background: #1a1a1a; border-radius: 8px; border: 1px solid #ff4444;">
-                        <h3 style="margin-top: 0;">❌ Ошибка</h3>
-                        <p style="font-size: 16px; margin: 10px 0;">${friendlyMessage}</p>
-                `;
+                // Показать скриншот
+                screenshot.src = 'data:image/jpeg;base64,' + data.screenshot;
                 
-                // Если есть детали - показать их
-                if (errorDetails) {
-                    errorHtml += `
-                        <details style="margin-top: 15px; cursor: pointer;">
-                            <summary style="color: #ffaa00; font-weight: 600;">📋 Детальный отчет об ошибке</summary>
-                            <div style="margin-top: 10px; padding: 15px; background: #0a0a0a; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                // Показать зоны
+                zones.innerHTML = '';
+                data.zones.forEach(zone => {
+                    const div = document.createElement('div');
+                    div.className = 'zone';
+                    div.innerHTML = `
+                        <h3>${zone.name}</h3>
+                        <p>${zone.available ? '✅ Доступна' : '❌ Занята'}</p>
+                        <p>${zone.description}</p>
                     `;
-                    
-                    // URL
-                    errorHtml += `<p><strong>🔗 URL:</strong> ${errorDetails.url || url}</p>`;
-                    
-                    // Количество попыток
-                    if (errorDetails.totalAttempts) {
-                        errorHtml += `<p><strong>🔢 Попыток:</strong> ${errorDetails.totalAttempts}</p>`;
-                    }
-                    
-                    // Время
-                    errorHtml += `<p><strong>⏰ Время:</strong> ${errorDetails.timestamp || new Date().toISOString()}</p>`;
-                    
-                    // Все ошибки по попыткам
-                    if (errorDetails.errors && errorDetails.errors.length > 0) {
-                        errorHtml += `<p style="margin-top: 15px;"><strong>📝 История попыток:</strong></p>`;
-                        errorDetails.errors.forEach((err, idx) => {
-                            errorHtml += `
-                                <div style="margin: 10px 0; padding: 10px; background: #1a1a1a; border-left: 3px solid #ff4444;">
-                                    <p><strong>Попытка ${err.attempt}:</strong></p>
-                                    <p style="color: #ff6666;">Тип: ${err.errorName}</p>
-                                    <p style="color: #ff6666;">Сообщение: ${err.errorMessage}</p>
-                                    <p style="color: #999; font-size: 10px;">Время: ${err.time}</p>
-                                </div>
-                            `;
-                        });
-                    }
-                    
-                    // Stack trace последней ошибки
-                    if (errorDetails.errorStack) {
-                        errorHtml += `
-                            <details style="margin-top: 10px;">
-                                <summary style="color: #666;">Stack trace</summary>
-                                <pre style="margin-top: 5px; color: #666; font-size: 10px; white-space: pre-wrap; word-wrap: break-word;">${errorDetails.errorStack}</pre>
-                            </details>
-                        `;
-                    }
-                    
-                    errorHtml += `</div></details>`;
-                }
+                    zones.appendChild(div);
+                });
                 
-                errorHtml += `
-                        <p style="margin-top: 15px; color: #ffaa00;">
-                            💡 <strong>Возможные причины:</strong><br>
-                            • Сайт недоступен или медленно отвечает<br>
-                            • Проблемы с интернет-соединением<br>
-                            • Сайт блокирует автоматические запросы<br>
-                            • Неверный URL
-                        </p>
-                `;
+                // Показать предложение
+                proposal.textContent = data.proposal;
                 
-                if (isApiKeyError) {
-                    errorHtml += `
-                        <button onclick="document.getElementById('apiKeyButton').click()" style="padding: 10px 20px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px;">
-                            🔑 Настроить API ключ
-                        </button>
-                    `;
-                }
+                progress.style.display = 'none';
+                results.style.display = 'block';
                 
-                errorHtml += `</div>`;
-                
-                results.innerHTML = errorHtml;
+            } catch (err) {
+                error.textContent = '❌ ' + err.message;
+                error.style.display = 'block';
+                progress.style.display = 'none';
             } finally {
-                searchButton.disabled = false;
-                searchButton.textContent = 'Найти';
-            }
-        }
-        
-        // Bind event listeners
-        searchButton.addEventListener('click', handleSearch);
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSearch();
-        });
-        
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && apiModal.classList.contains('active')) {
-                closeApiModal();
+                btn.disabled = false;
             }
         });
     </script>
