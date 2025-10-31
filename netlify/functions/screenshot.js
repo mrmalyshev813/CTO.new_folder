@@ -80,7 +80,7 @@ exports.handler = async (event) => {
         console.log('📸 Capturing screenshot...');
         const screenshot = await page.screenshot({
             type: 'jpeg',
-            quality: 50,
+            quality: 75,
             fullPage: false,
             clip: { x: 0, y: 0, width: 1280, height: 800 }
         });
@@ -97,7 +97,8 @@ exports.handler = async (event) => {
         const base64 = screenshot.toString('base64');
         const result = {
             success: true,
-            screenshot: `data:image/jpeg;base64,${base64}`
+            screenshot: base64,
+            format: 'jpeg'
         };
 
         console.log('\n===========================================');
