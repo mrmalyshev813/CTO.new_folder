@@ -1,273 +1,116 @@
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
-const sharp = require('sharp');
 
-/**
- * Optimize screenshot for Vision API
- * Compress if size exceeds maxSizeMB limit
- */
-async function optimizeScreenshotForVision(screenshot, maxSizeMB = 5) {
-    const initialSizeKB = (screenshot.length / 1024).toFixed(2);
-    const initialSizeMB = screenshot.length / (1024 * 1024);
-    
-    console.log(`📊 Исходный размер скриншота: ${initialSizeKB} KB (${initialSizeMB.toFixed(2)} MB)`);
-    
-    if (initialSizeMB <= maxSizeMB) {
-        console.log(`✅ Размер в пределах лимита (${maxSizeMB} MB), сжатие не требуется`);
-        return screenshot;
-    }
-    
-    console.log(`⚙️ Скриншот > ${maxSizeMB}MB, применяем дополнительное сжатие...`);
-    
-    const targetQuality = Math.max(50, Math.floor(70 * (maxSizeMB / initialSizeMB)));
-    
-    const optimized = await sharp(screenshot)
-        .resize(1280, 1024, {
-            fit: 'inside',
-            withoutEnlargement: true
-        })
-        .jpeg({
-            quality: targetQuality,
-            progressive: true,
-            mozjpeg: true
-        })
-        .toBuffer();
-    
-    const finalSizeKB = (optimized.length / 1024).toFixed(2);
-    const finalSizeMB = optimized.length / (1024 * 1024);
-    
-    console.log(`✅ Сжато до: ${finalSizeKB} KB (${finalSizeMB.toFixed(2)} MB, качество: ${targetQuality}%)`);
-    
-    return optimized;
-}
-
-/**
- * Load page with retry logic and detailed error reporting
- */
 async function loadPageWithRetry(page, url, maxRetries = 3) {
-    const errors = [];
-    
-    for (let i = 0; i < maxRetries; i++) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            console.log(`🔄 Попытка ${i + 1}/${maxRetries} загрузить ${url}`);
-            console.log(`⏱️ Время начала: ${new Date().toISOString()}`);
+            console.log(`Attempt ${attempt}/${maxRetries}...`);
             
-            const startTime = Date.now();
-            
-            await page.goto(url, { 
+            await page.goto(url, {
                 waitUntil: 'domcontentloaded',
-                timeout: 60000
+                timeout: 30000
             });
             
-            const loadTime = Date.now() - startTime;
-            console.log(`✅ Страница загружена за ${loadTime}ms`);
-            
-            return { success: true, attempts: i + 1, loadTime, errors };
+            console.log('✅ Page loaded');
+            return;
             
         } catch (error) {
-            const errorDetails = {
-                attempt: i + 1,
-                time: new Date().toISOString(),
-                errorName: error.name,
-                errorMessage: error.message,
-                errorStack: error.stack,
-                url: url
-            };
+            console.error(`❌ Attempt ${attempt} failed:`, error.message);
             
-            errors.push(errorDetails);
+            if (attempt === maxRetries) throw error;
             
-            console.error(`❌ Попытка ${i + 1} провалена:`);
-            console.error(`   Тип ошибки: ${error.name}`);
-            console.error(`   Сообщение: ${error.message}`);
-            console.error(`   URL: ${url}`);
-            
-            if (i === maxRetries - 1) {
-                // Последняя попытка - формируем детальный отчет
-                const errorReport = {
-                    success: false,
-                    url: url,
-                    totalAttempts: maxRetries,
-                    errors: errors,
-                    summary: `Не удалось загрузить сайт после ${maxRetries} попыток`,
-                    lastError: error.message
-                };
-                
-                throw new Error(JSON.stringify(errorReport));
-            }
-            
-            console.log(`⏳ Ожидание 2 секунды перед следующей попыткой...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(r => setTimeout(r, 2000));
         }
     }
 }
 
 exports.handler = async (event) => {
-    if (event.httpMethod !== 'POST') {
-        return {
-            statusCode: 405,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ error: 'Method not allowed' })
-        };
-    }
+    console.log('\n===========================================');
+    console.log('🔍 FUNCTION START:', new Date().toISOString());
+    console.log('Function name:', event.rawUrl);
+    console.log('===========================================\n');
 
-    const { url } = JSON.parse(event.body);
-    
-    console.log('📊 === НАЧАЛО АНАЛИЗА ===');
-    console.log(`URL: ${url}`);
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    
-    const performanceMetrics = {
-        startTime: Date.now(),
-        browserLaunch: null,
-        pageLoad: null,
-        screenshot: null,
-        totalTime: null
-    };
-    
+    console.log('\n🔧 ENVIRONMENT CHECK:');
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'SET ✅' : 'MISSING ❌');
+    console.log('URL:', process.env.URL);
+    console.log('\n');
+
     let browser;
     try {
-        // Launch browser
-        console.log('🚀 Launching browser...');
-        const launchStart = Date.now();
+        const body = JSON.parse(event.body || '{}');
+        console.log('📥 Input:', JSON.stringify(body, null, 2));
         
+        const { url } = body;
+        if (!url) {
+            throw new Error("URL is required");
+        }
+
+        console.log('🚀 Launching browser...');
         browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
             executablePath: await chromium.executablePath(),
-            headless: chromium.headless,
+            headless: chromium.headless
         });
-        
-        performanceMetrics.browserLaunch = Date.now() - launchStart;
-        console.log(`✅ Браузер запущен за ${performanceMetrics.browserLaunch}ms`);
-        
-        // Open page
+        console.log('✅ Browser launched');
+
         const page = await browser.newPage();
-        await page.setViewport({ width: 1920, height: 1080 });
-        
-        // Отключить загрузку ненужных ресурсов для ускорения
-        console.log('⚙️ Настройка оптимизации загрузки...');
-        await page.setRequestInterception(true);
-        
-        let blockedResources = 0;
-        page.on('request', (req) => {
-            const resourceType = req.resourceType();
-            if (['font', 'media', 'stylesheet'].includes(resourceType)) {
-                blockedResources++;
-                req.abort();
-            } else {
-                req.continue();
-            }
-        });
-        
-        console.log(`✅ Блокировка лишних ресурсов настроена`);
-        
-        // Navigate with retry logic
-        console.log('🌐 Navigating to page...');
-        const pageLoadStart = Date.now();
-        
-        const result = await loadPageWithRetry(page, url);
-        
-        performanceMetrics.pageLoad = Date.now() - pageLoadStart;
-        
-        console.log('📊 === ОТЧЕТ О ЗАГРУЗКЕ ===');
-        console.log(`✅ Успешно: ${result.success}`);
-        console.log(`🔢 Попыток потребовалось: ${result.attempts}`);
-        console.log(`⏱️ Время загрузки: ${result.loadTime}ms`);
-        console.log(`🚫 Заблокировано ресурсов: ${blockedResources}`);
-        
-        if (result.errors.length > 0) {
-            console.log(`⚠️ Предыдущие ошибки (до успеха):`);
-            result.errors.forEach((err, idx) => {
-                console.log(`  ${idx + 1}. ${err.errorMessage}`);
-            });
-        }
-        
-        // Wait a bit for dynamic content to render
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Capture screenshot
+        await page.setViewport({ width: 1280, height: 800 });
+
+        await loadPageWithRetry(page, url);
+
         console.log('📸 Capturing screenshot...');
-        const screenshotStart = Date.now();
-        
         const screenshot = await page.screenshot({
             type: 'jpeg',
-            quality: 80,
-            fullPage: false
+            quality: 50,
+            fullPage: false,
+            clip: { x: 0, y: 0, width: 1280, height: 800 }
         });
-        
-        performanceMetrics.screenshot = Date.now() - screenshotStart;
-        console.log(`✅ Screenshot captured за ${performanceMetrics.screenshot}ms`);
-        
-        // Optimize screenshot for Vision API
-        console.log('🔧 Optimizing screenshot for Vision API...');
-        const optimizedScreenshot = await optimizeScreenshotForVision(screenshot);
-        
+
+        console.log('Screenshot size KB:', (screenshot.length / 1024).toFixed(2));
+        if (screenshot.length > 2 * 1024 * 1024) {
+            throw new Error('Screenshot too large: ' + (screenshot.length / (1024*1024)).toFixed(2) + 'MB');
+        }
+        console.log('✅ Screenshot captured and size is valid');
+
         await browser.close();
-        
-        // Return base64
-        const base64 = optimizedScreenshot.toString('base64');
-        
-        performanceMetrics.totalTime = Date.now() - performanceMetrics.startTime;
-        
-        console.log('📊 === МЕТРИКИ ПРОИЗВОДИТЕЛЬНОСТИ ===');
-        console.log(JSON.stringify(performanceMetrics, null, 2));
-        console.log('✅ === SCREENSHOT SUCCESS ===');
+        console.log('Browser closed');
+
+        const base64 = screenshot.toString('base64');
+        const result = {
+            success: true,
+            screenshot: `data:image/jpeg;base64,${base64}`
+        };
+
+        console.log('\n===========================================');
+        console.log('✅ FUNCTION SUCCESS');
+        console.log('===========================================\n');
         
         return {
             statusCode: 200,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS'
-            },
-            body: JSON.stringify({
-                success: true,
-                screenshot: `data:image/jpeg;base64,${base64}`,
-                metadata: {
-                    url: url,
-                    attempts: result.attempts,
-                    loadTime: result.loadTime,
-                    blockedResources: blockedResources,
-                    performanceMetrics: performanceMetrics,
-                    timestamp: new Date().toISOString()
-                }
-            })
+            body: JSON.stringify(result)
         };
-        
     } catch (error) {
-        console.error('❌ === КРИТИЧЕСКАЯ ОШИБКА ===');
+        console.error('\n===========================================');
+        console.error('❌ FUNCTION FAILED');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('===========================================\n');
         
-        let errorReport;
-        try {
-            errorReport = JSON.parse(error.message);
-        } catch {
-            errorReport = {
-                success: false,
-                url: url,
-                summary: error.message,
-                errorType: error.name,
-                errorStack: error.stack
-            };
+        if (browser) {
+            await browser.close();
         }
-        
-        console.error('📋 ДЕТАЛЬНЫЙ ОТЧЕТ ОБ ОШИБКЕ:');
-        console.error(JSON.stringify(errorReport, null, 2));
-        
-        if (browser) await browser.close();
-        
-        // Вернуть детальную ошибку клиенту
+
         return {
             statusCode: 500,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
             body: JSON.stringify({
-                success: false,
-                error: '⏱️ Сайт не ответил вовремя. Проверьте, доступен ли URL и попробуйте снова.',
-                details: errorReport,
-                timestamp: new Date().toISOString()
+                error: error.message,
+                details: {
+                    name: error.name,
+                    stack: error.stack
+                }
             })
         };
     }
