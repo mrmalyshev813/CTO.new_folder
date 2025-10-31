@@ -75,6 +75,14 @@ exports.handler = async (event) => {
         }
         console.log('✅ Screenshot obtained');
         
+        console.log('📤 Uploading screenshot to OpenAI Files API...');
+        const screenshotBuffer = Buffer.from(screenshotData.screenshot, 'base64');
+        const file = await openai.files.create({
+            file: screenshotBuffer,
+            purpose: 'vision'
+        });
+        console.log('✅ File uploaded:', file.id);
+        
         console.log('🤖 Analyzing with OpenAI Vision...');
         const visionCompletion = await openai.chat.completions.create({
             model: 'gpt-4o',
@@ -86,10 +94,9 @@ exports.handler = async (event) => {
                         text: `Analyze this screenshot of ${url} and return a JSON object with "zones" and "language".`
                     },
                     {
-                        type: 'image_url',
-                        image_url: {
-                            url: screenshotData.screenshot,
-                            detail: 'high'
+                        type: 'image_file',
+                        image_file: {
+                            file_id: file.id
                         }
                     }
                 ]
@@ -100,6 +107,10 @@ exports.handler = async (event) => {
         
         const analysis = JSON.parse(visionCompletion.choices[0].message.content);
         console.log('✅ Vision analysis complete');
+        
+        console.log('🗑️ Deleting file from OpenAI...');
+        await openai.files.delete(file.id);
+        console.log('✅ File deleted:', file.id);
 
         const result = {
             success: true,
