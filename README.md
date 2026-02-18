@@ -1,366 +1,171 @@
-# Ad Placement Analyzer
+# VK.com Clone
 
-A web service that analyzes websites for ad placement opportunities using OpenAI Vision (GPT-4o). This tool helps identify optimal locations for advertisements by analyzing website screenshots, finding contact information, researching companies, and generating personalized proposals.
-
-## 🚀 Latest: Complete Ad Parser
-
-**NEW!** Full-featured ad parser with:
-- ✅ Screenshot capture via Playwright + Chromium
-- ✅ Visual analysis using OpenAI Vision (GPT-4o)
-- ✅ Email and contact extraction
-- ✅ Company research and background info
-- ✅ Personalized proposal generation
-- ✅ Automatic language detection (Russian/English)
-
-📚 **See [README_COMPLETE_PARSER.md](./README_COMPLETE_PARSER.md) for complete documentation**
-
-🧪 **See [TESTING_COMPLETE_PARSER.md](./TESTING_COMPLETE_PARSER.md) for testing guide**
+A fully functional VK.com social network clone built with Next.js 14, Prisma, SQLite, and Tailwind CSS.
 
 ## Features
 
-- Screenshot capture using Puppeteer + Chromium
-- Visual AI analysis using OpenAI Vision (GPT-4o)
-- Email and contact extraction via web scraping
-- Company research using AI
-- Personalized proposal generation in detected language
-- Serverless architecture with Netlify Functions
-- Modern web-based frontend interface
+- **User Authentication**: Register and login with secure password hashing
+- **Profile Management**: Customizable profile with avatar, cover, bio, and personal info
+- **Social Feed**: News feed with posts, likes, and comments
+- **Friends System**: Send and accept friend requests
+- **Messaging**: Real-time private messaging with conversation history
+- **Photos**: Upload photos and organize them into albums
+- **Music**: Listen to tracks with a built-in music player
+- **Videos**: Watch and upload videos
+- **Groups**: Create and join communities
+- **Documents**: Upload and manage documents
+- **Market**: Buy and sell items
+- **Notifications**: Stay updated with your activities
 
-## Prerequisites
+## Tech Stack
 
-- Node.js 14.x or higher
-- OpenAI API key
-- Netlify account (for deployment)
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Database**: SQLite with Prisma ORM
+- **Authentication**: NextAuth.js v4
+- **Styling**: Tailwind CSS
+- **Real-time**: Pusher (for messaging)
+- **State Management**: Zustand
+- **UI Components**: shadcn/ui
 
-## Local Development Setup
+## Getting Started
 
-### 1. Clone the repository
+### Prerequisites
 
-```bash
-git clone <repository-url>
-cd <repository-name>
-```
+- Node.js 18+ installed
+- npm or yarn package manager
 
-### 2. Install dependencies
+### Installation
 
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-### 3. Set up environment variables
-
-Create a `.env` file in the root directory with the following:
-
-```
-OPENAI_API_KEY=your_openai_api_key_here
+2. Set up environment variables:
+```bash
+cp .env.example .env.local
 ```
 
-### 4. Run locally with Netlify CLI
+The `.env.local` file already contains default values for local development.
 
+3. Initialize the database:
+```bash
+npm run db:push
+```
+
+4. Seed the database with demo data:
+```bash
+npm run db:seed
+```
+
+5. Run the development server:
 ```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:8888`
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Deployment to Netlify
+## Demo Credentials
 
-### Option 1: Deploy via Netlify Dashboard (Recommended)
+The database seed includes these demo users (all with password: `password123`):
 
-1. **Connect to GitHub**
-   - Log in to [Netlify](https://app.netlify.com/)
-   - Click "Add new site" → "Import an existing project"
-   - Connect to your GitHub repository
-
-2. **Configure build settings**
-   - Build command: `npm install` (or leave empty)
-   - Publish directory: `.`
-   - Functions directory: `netlify/functions`
-
-3. **Set environment variables**
-   - Go to Site settings → Environment variables
-   - Add `OPENAI_API_KEY` with your OpenAI API key
-
-4. **Deploy**
-   - Click "Deploy site"
-   - Netlify will automatically deploy your site
-
-### Option 2: Deploy via Netlify CLI
-
-```bash
-# Install Netlify CLI globally
-npm install -g netlify-cli
-
-# Login to Netlify
-netlify login
-
-# Deploy to production
-netlify deploy --prod
-```
-
-When prompted:
-- Publish directory: `.`
-- Functions directory: `netlify/functions`
-
-**Important:** After deployment, set the environment variable in Netlify dashboard:
-- Go to Site settings → Environment variables
-- Add `OPENAI_API_KEY` with your OpenAI API key
-- Redeploy the site for changes to take effect
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `OPENAI_API_KEY` | Your OpenAI API key for GPT-4o-mini access | Yes |
-
-Configure this in:
-- **Local development**: `.env` file in the root directory
-- **Netlify deployment**: Site settings → Environment variables in Netlify dashboard
+- **alex@example.com** - Alex Smith (Software developer)
+- **maria@example.com** - Maria Ivanova (Designer)
+- **dmitry@example.com** - Dmitry Kozlov (Music producer)
+- **elena@example.com** - Elena Petrova (Travel blogger)
+- **ivan@example.com** - Ivan Sidorov (Gamer)
 
 ## Project Structure
 
 ```
-.
-├── netlify/
-│   └── functions/
-│       ├── analyze.js       # Main analysis function
-│       ├── export-docx.js   # DOCX export function
-│       └── export-pdf.js    # PDF export function
-├── backend/                 # Legacy Python backend (for reference)
-│   └── app/
-│       ├── main.py
-│       ├── config.py
-│       ├── api/
-│       └── services/
-├── frontend/                # Legacy frontend (for reference)
-│   └── index.html
-├── index.html              # Main web interface
-├── netlify.toml            # Netlify configuration
-├── package.json            # Node.js dependencies
-├── .env.example            # Environment variables template
-└── README.md
+├── app/                    # Next.js app directory
+│   ├── (auth)/            # Authentication pages (login, register)
+│   ├── (main)/            # Main application pages
+│   ├── api/               # API routes
+│   ├── globals.css        # Global styles
+│   └── layout.tsx         # Root layout
+├── components/            # React components
+│   ├── feed/             # Feed components (PostCard, PostComposer)
+│   ├── friends/          # Friends components
+│   ├── layout/           # Layout components (Header, Sidebar)
+│   ├── messages/         # Messaging components
+│   ├── music/            # Music player components
+│   ├── profile/          # Profile components
+│   ├── settings/         # Settings components
+│   └── ui/               # Shared UI components
+├── lib/                   # Utility libraries
+│   ├── prisma.ts         # Prisma client
+│   ├── auth.ts           # NextAuth configuration
+│   ├── pusher.ts         # Pusher server configuration
+│   └── stores/           # Zustand stores
+├── prisma/               # Prisma schema and migrations
+│   ├── schema.prisma     # Database schema
+│   └── seed.ts           # Database seed file
+├── public/               # Static assets
+│   └── uploads/          # User uploaded files
+└── types/                # TypeScript type definitions
 ```
 
-## Architecture
+## Available Scripts
 
-The application uses a serverless architecture optimized for Netlify:
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run db:push` - Push schema to database
+- `npm run db:seed` - Seed database with demo data
+- `npm run db:studio` - Open Prisma Studio
 
-- **Frontend**: Static HTML served from the root directory
-- **Backend**: Three Netlify Functions (serverless)
-  - `analyze.js` - Website crawling, AI analysis, and proposal generation
-  - `export-docx.js` - DOCX file export
-  - `export-pdf.js` - PDF file export
+## Features Overview
 
-### Technology Stack
+### Authentication
+- Secure registration with email validation
+- JWT-based sessions with NextAuth
+- Password hashing with bcrypt
 
-- **Web Scraping**: Puppeteer Core v21.5.2 with @sparticuz/chromium v119.0.2 (Netlify-compatible)
-- **AI Analysis**: OpenAI Node.js SDK (GPT-4o-mini)
-- **HTML Parsing**: Cheerio
-- **DOCX Generation**: docx npm package
-- **PDF Generation**: PDFKit
-- **Hosting**: Netlify Functions + Static hosting
+### Social Features
+- Create, like, and comment on posts
+- Add and remove friends
+- Real-time messaging
+- Photo albums with lightbox
+- Music streaming with playlist support
+- Video uploads and playback
+- Group communities
+- Document management
+- Marketplace for buying/selling
 
-## API Endpoints
+### UI/UX
+- VK-accurate design with dark blue theme
+- Responsive layout (mobile-friendly)
+- Three-column layout on desktop
+- Real-time updates
+- Smooth transitions and animations
 
-When deployed on Netlify, the functions are available at:
+## Development Notes
 
-- `POST /.netlify/functions/analyze` - Analyze a website for ad placement opportunities
-  - Request body: `{"url": "https://example.com"}`
-  - Returns: Analysis results with detected zones and proposal text
-- `GET /.netlify/functions/export-docx/{analysis_id}` - Download proposal as DOCX file
-- `GET /.netlify/functions/export-pdf/{analysis_id}` - Download proposal as PDF file
+### Database
+The project uses SQLite for simplicity. The database file (`dev.db`) is created automatically when you run `npm run db:push`.
 
-### Example Usage
+### File Uploads
+User uploads are stored in `public/uploads/`. In production, you should use a cloud storage service like AWS S3.
 
-```bash
-# Analyze a website
-curl -X POST https://your-site.netlify.app/.netlify/functions/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://news.ycombinator.com"}'
+### Real-time Features
+The project is configured to use Pusher for real-time messaging. For local development, you can either:
+- Use a free Pusher account
+- Use Soketi (self-hosted Pusher alternative)
+- Implement polling fallback
 
-# Download DOCX (use analysis_id from response)
-curl -o proposal.docx \
-  "https://your-site.netlify.app/.netlify/functions/export-docx/{analysis_id}"
+## Contributing
 
-# Download PDF
-curl -o proposal.pdf \
-  "https://your-site.netlify.app/.netlify/functions/export-pdf/{analysis_id}"
-```
-
-## Testing
-
-### Local Testing
-
-```bash
-# Start local development server
-npm run dev
-
-# Open browser to http://localhost:8888
-# Test with URL: https://nlabteam.com
-```
-
-### Automated Testing
-
-```bash
-# Run basic function tests
-npm run test
-
-# Run comprehensive E2E tests with real websites
-npm run test:e2e
-```
-
-### Code Quality Checks
-
-This project uses pre-commit and pre-push hooks to ensure code quality:
-
-```bash
-# Run all validation checks manually
-npm run precommit
-
-# Individual checks
-npm run validate:js     # Validate JavaScript syntax
-npm run validate:html   # Validate HTML structure
-npm run lint:check      # Run ESLint
-npm run lint            # Run ESLint with auto-fix
-```
-
-See [PRE_COMMIT_CHECKS.md](PRE_COMMIT_CHECKS.md) for detailed documentation.
-
-### Test Checklist
-
-- ✅ Website crawling with Puppeteer Core + @sparticuz/chromium
-- ✅ AI analysis with GPT-4o-mini
-- ✅ Proposal generation (Adlook template, no asterisks)
-- ✅ DOCX export functionality
-- ✅ PDF export functionality
-- ✅ Error handling for invalid URLs
-- ✅ All functions working on Netlify
-- ✅ Tested with real websites (nlabteam.com, example.com, news.ycombinator.com)
-
-## Troubleshooting
-
-### Local Development Issues
-
-**Issue**: Functions not working locally
-```bash
-# Make sure Netlify CLI is installed
-npm install -g netlify-cli
-
-# Use netlify dev instead of a regular web server
-netlify dev
-```
-
-**Issue**: OpenAI API errors
-```bash
-# Verify your API key is set correctly
-echo $OPENAI_API_KEY
-
-# Make sure .env file exists with correct key
-cat .env
-```
-
-### Netlify Deployment Issues
-
-**Issue**: Functions failing on Netlify
-
-1. Check environment variables are set in Netlify dashboard
-2. Check function logs in Netlify dashboard: Site → Functions → View logs
-3. Ensure `OPENAI_API_KEY` is set correctly
-
-**Issue**: Timeout errors
-
-- Netlify Functions have a 10-second timeout on free tier (26 seconds on Pro)
-- Consider upgrading to Pro if analyzing large websites
-
-**Issue**: Memory errors
-
-- Netlify Functions have 1024MB memory limit
-- Puppeteer Core with @sparticuz/chromium is optimized for Netlify
-- If issues persist, consider analyzing smaller HTML snippets
-
-### Chrome/Puppeteer Issues
-
-**Issue**: Browser launch fails on Netlify
-
-The project uses `@sparticuz/chromium` which is specifically designed for serverless environments like Netlify Functions, AWS Lambda, etc. This is the modern replacement for the deprecated `chrome-aws-lambda`.
-
-If you encounter issues:
-1. Verify `@sparticuz/chromium` version is v119.0.2 or compatible
-2. Ensure `puppeteer-core` version matches (v21.5.2 or compatible)
-3. Check that `netlify.toml` includes the correct bundler configuration:
-   ```toml
-   [functions]
-     node_bundler = "esbuild"
-     external_node_modules = ["@sparticuz/chromium"]
-     included_files = ["node_modules/@sparticuz/chromium/**"]
-   ```
-
-## Migration from Python FastAPI
-
-This project was originally built with Python FastAPI and has been migrated to Netlify Functions (Node.js) for serverless deployment. The legacy Python code is kept in the `backend/` and `frontend/` directories for reference.
-
-Key changes:
-- Python → Node.js/JavaScript
-- FastAPI → Netlify Functions
-- Playwright → Puppeteer Core with @sparticuz/chromium
-- WeasyPrint → PDFKit
-- python-docx → docx npm package
-
-## Auto-merge for cto.new PRs
-
-This repository is configured with automatic merging for Pull Requests created by the cto.new bot. This ensures that approved changes from the bot are merged automatically without manual intervention.
-
-### How it works
-
-1. **Automatic Trigger**: When a PR is opened, reopened, or synchronized by the cto.new bot, the auto-merge workflow is triggered
-2. **Safety Checks**: The workflow verifies:
-   - PR is from verified cto.new bot account (`cto-ai-app[bot]` or `cto-new[bot]`)
-   - PR does not have the `no-auto-merge` label
-   - No merge conflicts exist
-   - All required status checks pass (if any are configured)
-3. **Auto-approval**: The workflow automatically approves the PR
-4. **Merge**: The PR is merged using the standard merge strategy (not squash or rebase)
-5. **Notification**: A comment is added to the PR confirming the auto-merge
-
-### Manual Override
-
-To prevent a cto.new PR from being automatically merged:
-
-1. Add the `no-auto-merge` label to the PR
-2. The workflow will detect this label and skip the auto-merge process
-3. You can then review and merge manually
-
-### Security
-
-- Only PRs from verified cto.new bot accounts are eligible for auto-merge
-- All configured branch protection rules and status checks must pass
-- Merge conflicts prevent auto-merge
-- The workflow logs all actions for audit purposes
-
-### Workflow File
-
-The auto-merge workflow is defined in `.github/workflows/auto-merge.yml` and includes:
-
-- Author verification
-- Label-based manual override
-- Merge conflict detection
-- Status check validation
-- Automatic PR approval
-- Standard merge execution
-- Post-merge notifications
-
-## Documentation
-
-- **[README.md](README.md)** - This file, setup and deployment instructions
-- **[PRE_COMMIT_CHECKS.md](PRE_COMMIT_CHECKS.md)** - Guide for pre-commit hooks and code quality checks
-- **[CHANGELOG_BUGFIX.md](CHANGELOG_BUGFIX.md)** - Recent bugfixes and improvements
-- **[QUICK_START.md](QUICK_START.md)** - Quick setup guide
-- **[TEST_RESULTS.md](TEST_RESULTS.md)** - Comprehensive test report
-- **[NETLIFY_PUPPETEER_FIX.md](NETLIFY_PUPPETEER_FIX.md)** - Puppeteer fix details and test results
-- **[PUPPETEER_FIX_SUMMARY.md](PUPPETEER_FIX_SUMMARY.md)** - Task completion summary
-- **[VERIFICATION_CHECKLIST.md](VERIFICATION_CHECKLIST.md)** - Complete verification checklist
-- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical documentation
+This is a demonstration project. Feel free to fork and modify it for your own use.
 
 ## License
 
-TBD
+MIT
+
+## Acknowledgments
+
+- Built as a learning project to demonstrate full-stack Next.js development
+- UI inspired by VK.com
+- Uses shadcn/ui components for the design system
