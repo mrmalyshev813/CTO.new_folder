@@ -1,9 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
-import { Camera, MessageSquare, UserPlus, MoreHorizontal } from 'lucide-react'
+import { Camera, MessageSquare, UserPlus, UserCheck, UserX, MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
 
 interface ProfileHeaderProps {
   user: {
@@ -19,6 +20,7 @@ interface ProfileHeaderProps {
   friendCount: number
   postCount: number
   isOwnProfile: boolean
+  friendshipStatus?: 'friends' | 'sent' | 'received' | 'none'
 }
 
 export default function ProfileHeader({
@@ -26,8 +28,97 @@ export default function ProfileHeader({
   friendCount,
   postCount,
   isOwnProfile,
+  friendshipStatus = 'none',
 }: ProfileHeaderProps) {
   const [showMenu, setShowMenu] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [status, setStatus] = useState(friendshipStatus)
+  const router = useRouter()
+
+  const handleFriendAction = async () => {
+    if (status === 'friends') {
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      if (status === 'none') {
+        const response = await fetch('/api/friends/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        })
+        if (response.ok) {
+          setStatus('sent')
+          toast.success('Friend request sent!')
+        }
+      } else if (status === 'received') {
+        const response = await fetch('/api/friends/accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        })
+        if (response.ok) {
+          setStatus('friends')
+          toast.success('Friend request accepted!')
+          router.refresh()
+        }
+      }
+    } catch (error) {
+      toast.error('An error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const getFriendButton = () => {
+    if (isOwnProfile) {
+      return (
+        <button className="vk-button px-4 py-2 text-sm">
+          Edit Page
+        </button>
+      )
+    }
+
+    switch (status) {
+      case 'friends':
+        return (
+          <button className="vk-button-secondary px-4 py-2 text-sm flex items-center gap-2">
+            <UserCheck className="w-4 h-4" />
+            Friends
+          </button>
+        )
+      case 'sent':
+        return (
+          <button className="vk-button-secondary px-4 py-2 text-sm flex items-center gap-2 opacity-70" disabled>
+            <UserPlus className="w-4 h-4" />
+            Request Sent
+          </button>
+        )
+      case 'received':
+        return (
+          <button
+            onClick={handleFriendAction}
+            disabled={isLoading}
+            className="vk-button px-4 py-2 text-sm flex items-center gap-2"
+          >
+            <UserCheck className="w-4 h-4" />
+            Accept Request
+          </button>
+        )
+      default:
+        return (
+          <button
+            onClick={handleFriendAction}
+            disabled={isLoading}
+            className="vk-button px-4 py-2 text-sm flex items-center gap-2"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Friend
+          </button>
+        )
+    }
+  }
 
   return (
     <div className="bg-white rounded shadow-sm overflow-hidden">
@@ -72,21 +163,12 @@ export default function ProfileHeader({
           </div>
 
           <div className="flex items-center gap-2 pb-2">
-            {isOwnProfile ? (
-              <button className="vk-button px-4 py-2 text-sm">
-                Edit Page
+            {getFriendButton()}
+            {!isOwnProfile && (
+              <button className="vk-button-secondary px-4 py-2 text-sm flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Message
               </button>
-            ) : (
-              <>
-                <button className="vk-button px-4 py-2 text-sm flex items-center gap-2">
-                  <UserPlus className="w-4 h-4" />
-                  Add Friend
-                </button>
-                <button className="vk-button-secondary px-4 py-2 text-sm flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Message
-                </button>
-              </>
             )}
             <button
               onClick={() => setShowMenu(!showMenu)}
