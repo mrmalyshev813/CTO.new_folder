@@ -1,39 +1,40 @@
-# VK.com Clone
+# VK Clone
 
-A fully functional VK.com social network clone built with Next.js 14, Prisma, SQLite, and Tailwind CSS.
+A fully functional VK.com social network clone built with Next.js 14, Prisma, SQLite, and NextAuth.
 
 ## Features
 
-- **User Authentication**: Register and login with secure password hashing
-- **Profile Management**: Customizable profile with avatar, cover, bio, and personal info
-- **Social Feed**: News feed with posts, likes, and comments
-- **Friends System**: Send and accept friend requests
-- **Messaging**: Real-time private messaging with conversation history
-- **Photos**: Upload photos and organize them into albums
-- **Music**: Listen to tracks with a built-in music player
-- **Videos**: Watch and upload videos
-- **Groups**: Create and join communities
-- **Documents**: Upload and manage documents
-- **Market**: Buy and sell items
-- **Notifications**: Stay updated with your activities
+- 🔐 **Authentication** - Register, login, logout with NextAuth
+- 👤 **User Profiles** - Customizable profiles with avatar, cover photo, bio, status
+- 📰 **News Feed** - Posts from friends with likes, comments, and shares
+- 👥 **Friends System** - Send, accept, decline friend requests
+- 💬 **Messages** - Real-time messaging with conversations
+- 📸 **Photos** - Upload photos, create albums, like and comment
+- 🎵 **Music** - Music player with playlists
+- 🎬 **Videos** - Upload and watch videos
+- 📚 **Groups** - Create and join communities
+- 📄 **Documents** - Upload and share files
+- 🛍️ **Market** - Buy and sell items
+- 📱 **Stories** - Share temporary photos/videos that expire after 24 hours
+- 🔔 **Notifications** - Get notified about likes, comments, friend requests
+- ⚙️ **Settings** - Customize your profile and preferences
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Database**: SQLite with Prisma ORM
+- **Frontend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Database**: SQLite (development), PostgreSQL (production ready)
 - **Authentication**: NextAuth.js v4
-- **Styling**: Tailwind CSS
-- **Real-time**: Pusher (for messaging)
+- **Real-time**: Pusher (or polling fallback)
 - **State Management**: Zustand
-- **UI Components**: shadcn/ui
+- **UI Components**: Custom VK-styled components
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ installed
-- npm or yarn package manager
+- Node.js 18+ 
+- npm or yarn
 
 ### Installation
 
@@ -42,130 +43,119 @@ A fully functional VK.com social network clone built with Next.js 14, Prisma, SQ
 npm install
 ```
 
-2. Set up environment variables:
-```bash
-cp .env.example .env.local
-```
-
-The `.env.local` file already contains default values for local development.
-
-3. Initialize the database:
+2. Create the database and run migrations:
 ```bash
 npm run db:push
 ```
 
-4. Seed the database with demo data:
+3. Seed the database with demo data:
 ```bash
 npm run db:seed
 ```
 
-5. Run the development server:
+4. Start the development server:
 ```bash
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Demo Credentials
+### Demo Credentials
 
-The database seed includes these demo users (all with password: `password123`):
+Use these accounts to test the application:
 
-- **alex@example.com** - Alex Smith (Software developer)
-- **maria@example.com** - Maria Ivanova (Designer)
-- **dmitry@example.com** - Dmitry Kozlov (Music producer)
-- **elena@example.com** - Elena Petrova (Travel blogger)
-- **ivan@example.com** - Ivan Sidorov (Gamer)
+- **Email**: `alex@example.com` | **Password**: `password123`
+- **Email**: `maria@example.com` | **Password**: `password123`
+- **Email**: `dmitry@example.com` | **Password**: `password123`
+- **Email**: `elena@example.com` | **Password**: `password123`
+- **Email**: `ivan@example.com` | **Password**: `password123`
 
 ## Project Structure
 
 ```
-├── app/                    # Next.js app directory
-│   ├── (auth)/            # Authentication pages (login, register)
-│   ├── (main)/            # Main application pages
-│   ├── api/               # API routes
-│   ├── globals.css        # Global styles
-│   └── layout.tsx         # Root layout
-├── components/            # React components
-│   ├── feed/             # Feed components (PostCard, PostComposer)
-│   ├── friends/          # Friends components
-│   ├── layout/           # Layout components (Header, Sidebar)
+├── app/
+│   ├── (auth)/           # Authentication pages (login, register)
+│   ├── (main)/           # Main application pages
+│   │   ├── friends/      # Friends management
+│   │   ├── groups/       # Groups/communities
+│   │   ├── market/       # Marketplace
+│   │   ├── messages/     # Messaging
+│   │   ├── music/        # Music player
+│   │   ├── news/         # News feed
+│   │   ├── notifications/# Notifications
+│   │   ├── photos/       # Photo albums
+│   │   ├── search/       # Search functionality
+│   │   ├── settings/     # User settings
+│   │   ├── video/        # Video section
+│   │   └── [username]/   # User profiles
+│   ├── api/              # API routes
+│   ├── globals.css       # Global styles
+│   └── layout.tsx        # Root layout
+├── components/
+│   ├── feed/             # Post-related components
+│   ├── friends/          # Friend-related components
+│   ├── layout/           # Layout components (Header, Sidebars)
 │   ├── messages/         # Messaging components
 │   ├── music/            # Music player components
 │   ├── profile/          # Profile components
 │   ├── settings/         # Settings components
-│   └── ui/               # Shared UI components
-├── lib/                   # Utility libraries
-│   ├── prisma.ts         # Prisma client
+│   ├── stories/          # Stories components
+│   └── ui/               # Reusable UI components
+├── lib/
 │   ├── auth.ts           # NextAuth configuration
-│   ├── pusher.ts         # Pusher server configuration
+│   ├── prisma.ts         # Prisma client
+│   ├── pusher.ts         # Pusher server client
+│   ├── pusher-client.ts  # Pusher browser client
 │   └── stores/           # Zustand stores
-├── prisma/               # Prisma schema and migrations
+├── prisma/
 │   ├── schema.prisma     # Database schema
-│   └── seed.ts           # Database seed file
-├── public/               # Static assets
-│   └── uploads/          # User uploaded files
+│   └── seed.ts           # Database seeding
+├── public/
+│   └── uploads/          # User-uploaded files
 └── types/                # TypeScript type definitions
 ```
 
-## Available Scripts
+## Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+DATABASE_URL="file:./dev.db"
+NEXTAUTH_SECRET="your-secret-key-change-in-production"
+NEXTAUTH_URL="http://localhost:3000"
+PUSHER_APP_ID="your-pusher-app-id"
+PUSHER_KEY="your-pusher-key"
+PUSHER_SECRET="your-pusher-secret"
+PUSHER_CLUSTER="your-pusher-cluster"
+NEXT_PUBLIC_PUSHER_KEY="your-pusher-key"
+NEXT_PUBLIC_PUSHER_CLUSTER="your-pusher-cluster"
+```
+
+## Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
-- `npm run db:push` - Push schema to database
+- `npm run db:push` - Push schema changes to database
 - `npm run db:seed` - Seed database with demo data
 - `npm run db:studio` - Open Prisma Studio
 
-## Features Overview
+## VK Styling
 
-### Authentication
-- Secure registration with email validation
-- JWT-based sessions with NextAuth
-- Password hashing with bcrypt
+This clone closely matches VK.com's visual design:
 
-### Social Features
-- Create, like, and comment on posts
-- Add and remove friends
-- Real-time messaging
-- Photo albums with lightbox
-- Music streaming with playlist support
-- Video uploads and playback
-- Group communities
-- Document management
-- Marketplace for buying/selling
-
-### UI/UX
-- VK-accurate design with dark blue theme
-- Responsive layout (mobile-friendly)
-- Three-column layout on desktop
-- Real-time updates
-- Smooth transitions and animations
-
-## Development Notes
-
-### Database
-The project uses SQLite for simplicity. The database file (`dev.db`) is created automatically when you run `npm run db:push`.
-
-### File Uploads
-User uploads are stored in `public/uploads/`. In production, you should use a cloud storage service like AWS S3.
-
-### Real-time Features
-The project is configured to use Pusher for real-time messaging. For local development, you can either:
-- Use a free Pusher account
-- Use Soketi (self-hosted Pusher alternative)
-- Implement polling fallback
+- **Header**: Dark blue (#2a5885) with white text
+- **Primary Blue**: #2688eb
+- **Background**: Light grey (#e1e3e6)
+- **Cards**: White with subtle shadows
+- **Online Status**: Green dot (#4bb34b)
+- **Typography**: System fonts (San Francisco, Helvetica Neue, Arial)
 
 ## Contributing
 
-This is a demonstration project. Feel free to fork and modify it for your own use.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT
-
-## Acknowledgments
-
-- Built as a learning project to demonstrate full-stack Next.js development
-- UI inspired by VK.com
-- Uses shadcn/ui components for the design system
+This project is for educational purposes only. VK is a trademark of VK Company Ltd.

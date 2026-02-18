@@ -12,15 +12,23 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { requestId } = body
+    const { requestId, userId } = body
 
-    if (!requestId) {
-      return NextResponse.json({ error: 'Request ID is required' }, { status: 400 })
+    let friendRequest = null
+
+    if (requestId) {
+      friendRequest = await prisma.friendRequest.findUnique({
+        where: { id: requestId },
+      })
+    } else if (userId) {
+      friendRequest = await prisma.friendRequest.findFirst({
+        where: {
+          requesterId: userId,
+          receiverId: session.user.id,
+          status: 'pending',
+        },
+      })
     }
-
-    const friendRequest = await prisma.friendRequest.findUnique({
-      where: { id: requestId },
-    })
 
     if (!friendRequest) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 })
@@ -32,7 +40,7 @@ export async function POST(request: Request) {
 
     await prisma.$transaction([
       prisma.friendRequest.update({
-        where: { id: requestId },
+        where: { id: friendRequest.id },
         data: { status: 'accepted' },
       }),
       prisma.friendship.create({
